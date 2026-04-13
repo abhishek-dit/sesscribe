@@ -1,0 +1,57 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Session {
+  id           String            @id @default(uuid())
+  title        String
+  date         DateTime          @default(now())
+  transcript   String?           // Stored as JSON string
+  summary      String?
+  actionPoints String?
+  attendees    SessionAttendee[]
+  event        Event?            @relation("EventSessions", fields: [eventId], references: [id])
+  eventId      String?
+}
+
+model Event {
+  id               String    @id @default(uuid())
+  name             String
+  date             DateTime  @default(now())
+  driveFolderId    String    // Google Drive folder for this event
+  whatsappApiKey   String    // AiSensy or WhatsApp API key for notifications
+  whatsappNumber   String    // Default number to send from
+  campaignName     String?   // AiSensy template/campaign name
+  logoUrl          String?   // Logo URL for Google Docs branding
+  aiSensyProjectId String?   // AiSensy assistantId for contacts API
+  aiSensyToken     String?   // AiSensy JWT session token (expires ~30min, refresh before broadcast)
+  broadcastFilter  String    @default("no_tags") // "all" | "no_tags" | "has_tag" | "not_has_tag"
+  broadcastTag     String?   // Tag name/ID for has_tag / not_has_tag filters
+  sessions         Session[] @relation("EventSessions")
+}
+
+
+model Attendee {
+  id             String            @id @default(uuid())
+  name           String
+  email          String
+  whatsappNumber String
+  sessions       SessionAttendee[]
+}
+
+model SessionAttendee {
+  sessionId  String
+  attendeeId String
+
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  attendee   Attendee @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, attendeeId])
+}

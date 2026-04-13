@@ -1,0 +1,79 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sesscribe-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sesscribe
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sesscribe_secret}
+      POSTGRES_DB: sesscribe
+    volumes:
+      - sesscribe-pgdata:/var/lib/postgresql/data
+    networks:
+      - sesscribe-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sesscribe"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sesscribe-redis
+    restart: unless-stopped
+    networks:
+      - sesscribe-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  python-backend:
+    build:
+      context: ./python-backend
+      dockerfile: Dockerfile
+    container_name: sesscribe-python
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8100:8000"
+    environment:
+      REDIS_URL: redis://redis:6379
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
+      HUGGINGFACE_TOKEN: ${HUGGINGFACE_TOKEN:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - sesscribe-net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sesscribe-app
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3000"
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: postgresql://sesscribe:${POSTGRES_PASSWORD:-sesscribe_secret}@postgres:5432/sesscribe
+      REDIS_URL: redis://redis:6379
+      NEXT_PUBLIC_ML_SERVER_URL: ws://python-backend:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sesscribe-net
+
+volumes:
+  sesscribe-pgdata:
+
+networks:
+  sesscribe-net:
+    name: sesscribe-net
