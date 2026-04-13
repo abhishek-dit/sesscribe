@@ -10,7 +10,6 @@ const nextConfig = {
   async rewrites() {
     return [];
   },
-  output: "standalone",
   experimental: {
     serverActions: {
       bodySizeLimit: '100mb',
