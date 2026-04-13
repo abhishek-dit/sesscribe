@@ -1,7 +1,6 @@
 /**
  * lib/prisma.js
- * Singleton Prisma client — lazy instantiation to survive Docker build
- * where DATABASE_URL is a dummy placeholder.
+ * Singleton Prisma client — lazy instantiation to survive Docker build.
  */
 import { PrismaClient } from "@prisma/client";
 
@@ -9,7 +8,9 @@ const globalForPrisma = globalThis;
 
 function getPrismaClient() {
   if (!globalForPrisma.__prisma) {
-    globalForPrisma.__prisma = new PrismaClient();
+    globalForPrisma.__prisma = new PrismaClient({
+      datasourceUrl: process.env.DATABASE_URL,
+    });
   }
   return globalForPrisma.__prisma;
 }
