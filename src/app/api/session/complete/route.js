@@ -130,64 +130,16 @@ async function triggerNotifications(session) {
 // ─── Route Handler ────────────────────────────────────────────────────────────
 export async function POST(request) {
   try {
-    const formData = await request.formData();
-    const sessionId = formData.get("sessionId");
-    
-    // We get the live streaming transcript as a fallback
-    let transcriptJson = [];
-    const clientTranscriptStr = formData.get("transcript");
-    if (clientTranscriptStr) {
-      try { transcriptJson = JSON.parse(clientTranscriptStr); } catch(e) {}
-    }
+    const body = await request.json();
+    const sessionId = body.sessionId;
+    const transcriptJson = body.transcript || [];
 
     if (!sessionId) {
       return Response.json({ error: "No sessionId provided" }, { status: 400 });
     }
 
-    // ── 1. Try Deepgram Prerecorded Batch processing (Supreme Accuracy) ──────
-    let batchTranscript = null;
-    const audioFile = formData.get("audioFile");
-    if (audioFile && audioFile.size > 0) {
-      console.log(`[session/complete] Audio file received (${audioFile.size} bytes). Running Deepgram Batch...`);
-      try {
-        const dgRes = await fetch("https://api.deepgram.com/v1/listen?model=nova-2&diarize=true&smart_format=true", {
-          method: "POST",
-          headers: {
-            "Authorization": `Token ${process.env.DEEPGRAM_API_KEY}`,
-            "Content-Type": "audio/webm",
-          },
-          body: audioFile,
-        });
-        
-        const dgData = await dgRes.json();
-        if (dgData.results && dgData.results.channels[0].alternatives[0]) {
-          const words = dgData.results.channels[0].alternatives[0].words || [];
-          if (words.length > 0) {
-            let batchSegments = [];
-            let currentSeg = null;
-            
-            for (const w of words) {
-              const speakerName = `Speaker ${w.speaker !== undefined ? w.speaker + 1 : 1}`;
-              if (!currentSeg || currentSeg.speaker !== speakerName) {
-                if (currentSeg) batchSegments.push(currentSeg);
-                currentSeg = { speaker: speakerName, text: w.punctuated_word || w.word, start: w.start, end: w.end };
-              } else {
-                currentSeg.text += " " + (w.punctuated_word || w.word);
-                currentSeg.end = w.end;
-              }
-            }
-            if (currentSeg) batchSegments.push(currentSeg);
-            batchTranscript = batchSegments;
-            console.log(`[session/complete] Deepgram Batch succeeded! (${batchTranscript.length} segments).`);
-          }
-        }
-      } catch (err) {
-        console.error("[session/complete] Deepgram Batch failed:", err.message);
-      }
-    }
-
-    // Determine the "best" transcript for the AI summary (batch > live > empty)
-    const bestTranscript = batchTranscript || (transcriptJson.length > 0 ? transcriptJson : [{ speaker: "System", text: "[No transcript could be generated]" }]);
+    // Use live transcript (batch processing happens separately via /api/session/upload-audio)
+    const bestTranscript = transcriptJson.length > 0 ? transcriptJson : [{ speaker: "System", text: "[No transcript could be generated]" }];
 
     const fullText = bestTranscript
       .map((t) => `${t.speaker}: ${t.text}`)
@@ -241,10 +193,10 @@ export async function POST(request) {
       eventLogoUrl
     );
 
-    // 4. Persist to PostgreSQL via Prisma. Save BOTH transcripts.
+    // 4. Persist to PostgreSQL via Prisma.
     const transcriptPayload = {
       live: transcriptJson,
-      batch: batchTranscript, // may be null if it failed
+      batch: null, // populated later by /api/session/upload-audio if audio is uploaded
     };
 
     let session;

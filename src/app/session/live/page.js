@@ -407,19 +407,35 @@ function LiveSessionInner() {
 
     try {
       const finalBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-      const formData = new FormData();
-      formData.append("sessionId", sessionId);
-      formData.append("transcript", JSON.stringify(finalTranscript));
-      if (finalBlob.size > 0) {
-        formData.append("audioFile", finalBlob, "recording.webm");
-      }
 
-      console.log(`[Frontend] Sending ${finalBlob.size} bytes to final upload.`);
+      // Step 1: Send transcript JSON (small payload — always succeeds)
+      console.log(`[Frontend] Sending transcript (${finalTranscript.length} segments)...`);
       const res = await fetch("/api/session/complete", {
         method: "POST",
-        body: formData, // JSON is no longer used
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          transcript: finalTranscript,
+        }),
       });
       const data = await res.json();
+
+      // Step 2: Try uploading audio separately for batch processing (may fail for large files — that's OK)
+      if (data.success && finalBlob.size > 0) {
+        try {
+          console.log(`[Frontend] Uploading audio (${(finalBlob.size / 1024 / 1024).toFixed(1)} MB)...`);
+          const audioForm = new FormData();
+          audioForm.append("sessionId", sessionId);
+          audioForm.append("audioFile", finalBlob, "recording.webm");
+          await fetch("/api/session/upload-audio", {
+            method: "POST",
+            body: audioForm,
+          });
+        } catch (audioErr) {
+          console.warn("[Frontend] Audio upload failed (non-fatal):", audioErr.message);
+        }
+      }
+
       if (data.success) {
         router.push(`/session/${sessionId}`);
       } else {

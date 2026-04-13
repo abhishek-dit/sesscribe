@@ -7,21 +7,25 @@ export default function AdminCleanup() {
   const [authenticated, setAuthenticated] = useState(false);
   const [events, setEvents] = useState([]);
   const [sessions, setSessions] = useState([]);
+  const [backups, setBackups] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
 
   async function loadData() {
     setLoading(true);
     try {
-      const [evRes, seRes] = await Promise.all([
+      const [evRes, seRes, bkRes] = await Promise.all([
         fetch("/api/admin/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secret }) }),
         fetch("/api/admin/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secret, type: "sessions" }) }),
+        fetch("/api/admin/backups", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secret }) }),
       ]);
       const evData = await evRes.json();
       const seData = await seRes.json();
+      const bkData = await bkRes.json();
       if (evData.error) throw new Error(evData.error);
       setEvents(evData.events || []);
       setSessions(seData.sessions || []);
+      setBackups(bkData.files || []);
     } catch (e) {
       setMessage({ type: "error", text: e.message });
     } finally {
@@ -125,6 +129,43 @@ export default function AdminCleanup() {
             </div>
           ))}
           {sessions.length === 0 && <p style={{ color: "#555", fontSize: "0.85rem" }}>No sessions found.</p>}
+        </div>
+
+        {/* Local Backups */}
+        <h2 style={{ color: "#888", marginBottom: "0.75rem", marginTop: "1rem", textTransform: "uppercase", letterSpacing: "0.05em", fontSize: "0.8rem" }}>Local Backups ({backups.length})</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {backups.map((f) => (
+            <div key={f.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 1rem", background: "#111", border: "1px solid #222", borderRadius: "8px" }}>
+              <div>
+                <span style={{ fontWeight: 600, fontFamily: "monospace", fontSize: "0.85rem" }}>{f.name}</span>
+                <span style={{ color: "#666", fontSize: "0.8rem", marginLeft: "0.75rem" }}>{(f.size / 1024).toFixed(0)} KB</span>
+                <span style={{ color: "#555", fontSize: "0.75rem", marginLeft: "0.75rem" }}>{new Date(f.modified).toLocaleString()}</span>
+              </div>
+              <button
+                onClick={async () => {
+                  const res = await fetch("/api/admin/backups", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ secret, action: "download", filename: f.name }),
+                  });
+                  const data = await res.json();
+                  if (data.content) {
+                    const blob = new Blob([data.content], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = f.name;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }
+                }}
+                style={{ padding: "0.35rem 0.75rem", background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: "6px", color: "#60a5fa", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}
+              >
+                Download
+              </button>
+            </div>
+          ))}
+          {backups.length === 0 && <p style={{ color: "#555", fontSize: "0.85rem" }}>No backup files found.</p>}
         </div>
       </div>
     </div>
