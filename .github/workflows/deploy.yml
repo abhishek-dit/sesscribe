@@ -16,9 +16,8 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             cd /opt/sesscribe
-            git pull origin main
-            docker compose build --no-cache
-            docker compose run --rm app npx prisma migrate deploy
+            git fetch origin && git reset --hard origin/main
+            docker compose build
             docker compose up -d --force-recreate
             docker image prune -f
             echo "Deploy complete at $(date)"

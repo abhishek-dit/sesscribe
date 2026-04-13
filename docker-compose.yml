@@ -49,6 +49,20 @@ services:
     networks:
       - sesscribe-net
 
+  # Run migrations before starting the app
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    container_name: sesscribe-migrate
+    environment:
+      DATABASE_URL: postgresql://sesscribe:${POSTGRES_PASSWORD:-sesscribe_secret}@postgres:5432/sesscribe
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sesscribe-net
+
   app:
     build:
       context: .
@@ -68,6 +82,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - sesscribe-net
 
