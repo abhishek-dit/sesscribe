@@ -207,16 +207,19 @@ function LiveSessionInner() {
       let stream;
       if (audioSource === "system") {
         const display = await navigator.mediaDevices.getDisplayMedia({
-          video: true,  // Overconstraining this causes NotSupportedError/OverconstrainedError
+          video: true,
           audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
         });
         const audioTracks = display.getAudioTracks();
-        display.getVideoTracks().forEach(t => t.stop());
         if (!audioTracks.length) {
-          alert("No audio was shared.\n\nIn Chrome's share dialog: select a tab, then check ✅ \"Share tab audio\" before clicking Share.");
+          display.getTracks().forEach(t => t.stop());
+          alert("No audio was shared.\n\nIn Chrome's share dialog: select a tab, then check the \"Share tab audio\" box before clicking Share.");
           return;
         }
-        stream = new MediaStream(audioTracks);
+        // Keep video track alive but muted — stopping it kills the entire capture
+        // session on Chrome 120+. We'll clean it up when recording stops.
+        display.getVideoTracks().forEach(t => { t.enabled = false; });
+        stream = display;
       } else {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true, channelCount: 1 },

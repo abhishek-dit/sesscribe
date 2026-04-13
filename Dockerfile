@@ -19,6 +19,12 @@ COPY . .
 
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 RUN npx prisma generate
+
+# NEXT_PUBLIC_ vars must be set at build time for client-side code
+ARG NEXT_PUBLIC_APP_URL=https://ss.insideoutprojects.in
+ARG NEXT_PUBLIC_ML_SERVER_URL=wss://ss.insideoutprojects.in/ws
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_ML_SERVER_URL=$NEXT_PUBLIC_ML_SERVER_URL
 RUN npm run build
 
 # --- Runner ---
