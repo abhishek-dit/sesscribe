@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export default function proxy(request) {
   // Public paths that bypass authentication
-  const publicPaths = ["/login", "/api/auth", "/_next", "/favicon.ico"];
+  const publicPaths = ["/login", "/api/auth", "/api/session/complete", "/api/session/slide", "/_next", "/favicon.ico"];
   const isPublicPath = publicPaths.some((path) => request.nextUrl.pathname.startsWith(path));
 
   if (isPublicPath) {
