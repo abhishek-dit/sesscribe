@@ -2,7 +2,12 @@ import prisma from "@/lib/prisma";
 import { Resend } from "resend";
 import { createMeetingDoc } from "@/lib/googleDrive";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy init — Resend throws if API key is missing at construct time
+let _resend;
+function getResend() {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY || "re_placeholder");
+  return _resend;
+}
 
 // ─── Gemini ───────────────────────────────────────────────────────────────────
 async function generateSummaryAndActions(fullText) {
@@ -48,7 +53,7 @@ async function sendEmail(person, session, url) {
     return;
   }
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: process.env.RESEND_FROM_EMAIL || "Meetings <meetings@yourdomain.com>",
     to: person.email,
     subject: `Meeting Summary: ${session.title}`,
