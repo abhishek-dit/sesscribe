@@ -206,10 +206,19 @@ function LiveSessionInner() {
       // React 18 concurrent setState can invalidate that token if called first.
       let stream;
       if (audioSource === "system") {
-        const display = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-        });
+        console.log("[Share] Requesting getDisplayMedia...");
+        let display;
+        try {
+          display = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+          });
+        } catch (shareErr) {
+          console.error("[Share] getDisplayMedia failed:", shareErr);
+          setStatus("idle");
+          return;
+        }
+        console.log("[Share] Got display stream, audio tracks:", display.getAudioTracks().length, "video tracks:", display.getVideoTracks().length);
         const audioTracks = display.getAudioTracks();
         if (!audioTracks.length) {
           display.getTracks().forEach(t => t.stop());
