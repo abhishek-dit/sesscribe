@@ -1,16 +1,18 @@
 /**
  * lib/prisma.js
- * Singleton Prisma client — lazy instantiation to survive Docker build.
+ * Singleton Prisma client with pg adapter — lazy instantiation for Docker build.
  */
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
 const globalForPrisma = globalThis;
 
 function getPrismaClient() {
   if (!globalForPrisma.__prisma) {
-    globalForPrisma.__prisma = new PrismaClient({
-      datasourceUrl: process.env.DATABASE_URL,
-    });
+    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+    const adapter = new PrismaPg(pool);
+    globalForPrisma.__prisma = new PrismaClient({ adapter });
   }
   return globalForPrisma.__prisma;
 }
