@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 /* -------------------------------------------------
    Home – now an **Events Dashboard**
    ------------------------------------------------- */
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   /* 1️⃣ Load events (with a sessions count) */
   let events = [];
