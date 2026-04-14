@@ -121,9 +121,9 @@ DESIGN:
 - Background: deep navy gradient (#0F172A to #1E293B)
 - A thin red (#CC0000) horizontal accent line below the header area
 - Top area (next to the logo): "${eventName}" in bold white, large. Below it: "${session.title}" in light blue (#60A5FA). Below that: "SesScribe — An InsideOut Event Product" in small gray (#9CA3AF)
-- Main content area: display these key highlights as a numbered list with good spacing, white text on the dark background:
-${highlights.map((h, i) => `  ${i + 1}. ${h}`).join("\n")}
-- Each bullet/number in red (#CC0000), text in white
+- Main content area: display these key highlights as a bullet list (use a solid red circle or square bullet ●) with good spacing, white text on the dark background:
+${highlights.map((h) => `  • ${h}`).join("\n")}
+- Do NOT use numbers. Each bullet symbol in red (#CC0000), text in white
 - Bottom-right: "Powered by SesScribe — An InsideOut Event Product" in small dark gray (#64748B)
 - Style: clean, modern, corporate. Sans-serif. No stock photos. Text-focused with tasteful geometric accents only.
 - The output MUST be exactly 16:9 aspect ratio (1920x1080).`;
