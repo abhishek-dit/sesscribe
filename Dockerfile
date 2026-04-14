@@ -31,6 +31,17 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
+# Chromium for puppeteer-based slide screenshot
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    font-noto
+
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
