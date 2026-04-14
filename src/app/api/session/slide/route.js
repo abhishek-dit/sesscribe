@@ -49,9 +49,31 @@ async function tryGenerateImage(apiKey, contentParts) {
   return null;
 }
 
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const sessionId = searchParams.get("sessionId");
+    if (!sessionId) return Response.json({ error: "No sessionId" }, { status: 400 });
+
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { slideImage: true },
+    });
+    if (!session) return Response.json({ error: "Session not found" }, { status: 404 });
+
+    if (session.slideImage) {
+      const parsed = JSON.parse(session.slideImage);
+      return Response.json({ success: true, image: parsed });
+    }
+    return Response.json({ success: true, image: null });
+  } catch (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function POST(request) {
   try {
-    const { sessionId } = await request.json();
+    const { sessionId, regenerate } = await request.json();
     if (!sessionId) {
       return Response.json({ error: "No sessionId provided" }, { status: 400 });
     }
@@ -124,12 +146,20 @@ ${highlights.map((h, i) => `  ${i + 1}. ${h}`).join("\n")}
       return Response.json({ error: "All Gemini image models failed. Check the server logs and ensure your API key has image generation access." }, { status: 502 });
     }
 
+    const imagePayload = {
+      mimeType: imagePart.inlineData.mimeType,
+      data: imagePart.inlineData.data,
+    };
+
+    // Persist to DB
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: { slideImage: JSON.stringify(imagePayload) },
+    });
+
     return Response.json({
       success: true,
-      image: {
-        mimeType: imagePart.inlineData.mimeType,
-        data: imagePart.inlineData.data,
-      },
+      image: imagePayload,
       sessionTitle: session.title,
       eventName,
     });

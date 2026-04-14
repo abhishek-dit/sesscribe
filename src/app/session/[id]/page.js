@@ -389,7 +389,11 @@ export default async function SessionResult({ params }) {
                   )}
                 </div>
 
-                <HighlightsSlideButton sessionId={session.id} actionPoints={actionPoints} />
+                <HighlightsSlideButton
+                  sessionId={session.id}
+                  actionPoints={actionPoints}
+                  existingSlide={session.slideImage ? JSON.parse(session.slideImage) : null}
+                />
 
                 {actionPoints.length === 0 ? (
                   <p style={{ color: "var(--fg-3)", fontSize: "0.88rem" }}>No highlights generated.</p>

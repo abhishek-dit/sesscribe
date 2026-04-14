@@ -16,6 +16,7 @@ model Session {
   transcript   String?           // Stored as JSON string
   summary      String?
   actionPoints String?
+  slideImage   String?           // Stored as JSON string: { mimeType, data (base64) }
   attendees    SessionAttendee[]
   event        Event?            @relation("EventSessions", fields: [eventId], references: [id])
   eventId      String?
