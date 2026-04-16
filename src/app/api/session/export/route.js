@@ -50,7 +50,8 @@ export async function POST(request) {
       fullText,
       folderId,
       event?.name || null,
-      event?.logoUrl || null
+      event?.logoUrl || null,
+      event?.logo2Url || null
     );
 
     if (!result) {
