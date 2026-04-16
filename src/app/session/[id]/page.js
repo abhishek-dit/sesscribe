@@ -119,6 +119,7 @@ export default async function SessionResult({ params }) {
           .results-grid > :first-child { grid-column: 1; }
           .results-grid > :nth-child(2) { grid-column: 1; }
           .results-grid > :nth-child(3) { grid-column: 2; grid-row: 1 / span 2; }
+          .results-grid > :nth-child(4) { grid-column: 1 / -1; }
         }
         @media (max-width: 900px) {
           .results-grid { grid-template-columns: 1fr; }
