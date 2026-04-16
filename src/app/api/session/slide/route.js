@@ -256,7 +256,7 @@ function buildSlideHtml({ eventName, sessionTitle, highlights, logoBase64, logoM
   </ul>
 
   <div class="footer">
-    <span class="footer-text">Powered by SesScribe — An InsideOut Event Product</span>
+    <span class="footer-text">Powered by SesScribe — An InsideOut Event Product  |  This transcript and summary was generated using AI. AI can make mistakes.</span>
   </div>
 </div>
 </body>
