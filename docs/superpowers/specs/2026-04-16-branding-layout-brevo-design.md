@@ -12,7 +12,7 @@ Four coordinated changes:
 1. Google Doc branding — logos-only header, expanded footer with tagline + confidential
 2. Slide branding — AI disclaimer added to footer
 3. Session page — three-column layout replacing the unbalanced two-column layout
-4. Brevo email — per-event settings, campaign-based broadcast button
+4. Brevo email — per-event settings, dynamically built campaign per session
 
 ---
 
@@ -78,7 +78,7 @@ Replace the current two-column grid (`minmax(350px, 1.2fr) 2fr`) with a three-co
 - `< 900px`: single column — left cards → center cards → transcript
 
 ### CSS class change
-Rename `.results-grid` media query to match the new three-column definition. Update `grid-template-columns` in the responsive overrides accordingly.
+Update `.results-grid` to the new three-column definition. Update `grid-template-columns` in the responsive overrides accordingly.
 
 ---
 
@@ -86,15 +86,14 @@ Rename `.results-grid` media query to match the new three-column definition. Upd
 
 ### 4a. Database (`prisma/schema.prisma`)
 
-Add four nullable String fields to the `Event` model:
+Add three nullable String fields to the `Event` model:
 
 ```prisma
 model Event {
   // existing fields ...
   brevoApiKey      String?   // Brevo API key for email campaigns
-  brevoListId      String?   // Brevo contact list ID (stored as string, parsed to int on use)
-  brevoTemplateId  String?   // Brevo email template ID (stored as string, parsed to int on use)
   brevoSenderEmail String?   // Verified sender email address in the Brevo account
+  brevoListId      String?   // Brevo contact list ID (stored as string, parsed to int on use)
 }
 ```
 
@@ -109,21 +108,19 @@ Add a **Brevo Email** section (new card, below the existing AiSensy/WhatsApp car
 | Brevo API Key | `brevoApiKey` | `password` (masked) |
 | Sender Email | `brevoSenderEmail` | `email` |
 | List ID | `brevoListId` | `text` |
-| Template ID | `brevoTemplateId` | `text` |
 
-Helper text under Sender Email: "Must be a verified sender in your Brevo account."
-
-Include all four in the `fetch("/api/event/update", ...)` body.
-
+Helper text under Sender Email: "Must be a verified sender in your Brevo account."  
 Helper text under the section: "Used to send session summaries to your Brevo contact list."
+
+Include all three in the `fetch("/api/event/update", ...)` body.
 
 ### 4c. Edit Event Page (`src/app/events/[id]/edit/page.js`)
 
 Add to `serialized`:
 ```js
 brevoApiKey: event.brevoApiKey,
+brevoSenderEmail: event.brevoSenderEmail,
 brevoListId: event.brevoListId,
-brevoTemplateId: event.brevoTemplateId,
 ```
 
 ### 4d. Event Update API (`src/app/api/event/update/route.js`)
@@ -133,7 +130,6 @@ Add:
 if (body.brevoApiKey !== undefined) data.brevoApiKey = body.brevoApiKey || null;
 if (body.brevoSenderEmail !== undefined) data.brevoSenderEmail = body.brevoSenderEmail || null;
 if (body.brevoListId !== undefined) data.brevoListId = body.brevoListId || null;
-if (body.brevoTemplateId !== undefined) data.brevoTemplateId = body.brevoTemplateId || null;
 ```
 
 ### 4e. Broadcast API (`src/app/api/session/broadcast-brevo/route.js`) — NEW
@@ -142,30 +138,44 @@ if (body.brevoTemplateId !== undefined) data.brevoTemplateId = body.brevoTemplat
 
 1. Read `sessionId` from body
 2. Fetch session (include event) from DB
-3. Validate: event must have `brevoApiKey`, `brevoSenderEmail`, `brevoListId`, `brevoTemplateId`
-4. Build campaign name: `"${session.title} — ${new Date().toLocaleDateString()}"`
-5. Build template params:
-   - `sessionTitle`: `session.title`
-   - `summary`: first 500 chars of cleaned summary (strip Google Doc links)
-   - `eventName`: `session.event.name`
-   - `sessionDate`: formatted session date
-6. `POST https://api.brevo.com/v3/emailCampaigns` with:
+3. Validate: event must have `brevoApiKey`, `brevoSenderEmail`, `brevoListId`
+4. Extract Google Doc URLs from `session.summary` using the same regex logic as the session page:
+   - Two-doc format: `[📝 Summary: <url>]\n[📄 Transcript: <url>]`
+   - Legacy single-doc format: `[📝 Google Doc Created: <url>]`
+5. Parse action points from `session.actionPoints` (same `parseActionPoints` logic as session page)
+6. Build email HTML dynamically — see structure below
+7. Build campaign name: `"${session.title} — ${new Date().toLocaleDateString()}"`
+8. `POST https://api.brevo.com/v3/emailCampaigns` with:
    ```json
    {
      "name": "<campaign name>",
-     "subject": "<session.title>",
+     "subject": "<session.title> — Session Summary",
      "sender": { "name": "<event.name>", "email": "<brevoSenderEmail>" },
      "recipients": { "listIds": [<brevoListId as int>] },
-     "templateId": <brevoTemplateId as int>,
-     "params": { "sessionTitle": "...", "summary": "...", "eventName": "...", "sessionDate": "..." }
+     "htmlContent": "<full email HTML string>"
    }
    ```
    Header: `api-key: <brevoApiKey>`
-7. Parse `id` from the campaign creation response
-8. `POST https://api.brevo.com/v3/emailCampaigns/{id}/sendNow`
-9. Return `{ success: true }` or error details
+9. Parse `id` from the campaign creation response
+10. `POST https://api.brevo.com/v3/emailCampaigns/{id}/sendNow`
+11. Return `{ success: true }` or error details
 
-No external npm packages — uses `fetch` (available in Next.js edge/node runtime).
+No external npm packages — uses `fetch` (available in Next.js runtime).
+
+### Email HTML structure
+
+The `htmlContent` is a self-contained HTML string built in the route handler. Structure:
+
+```
+[Event Name — session title, date]
+[Summary Doc button — links to gdocsSummaryUrl]       (only if URL exists)
+[Transcript Doc button — links to gdocsTranscriptUrl] (only if URL exists)
+[Key Highlights section — bullet list of action points]
+[Static footer: "SesScribe — An InsideOut Event Product | This transcript and summary
+ was generated using AI. AI can make mistakes."]
+```
+
+Inline CSS only (email client compatibility). Dark-on-light color scheme (white background, dark text) — email clients don't support CSS variables. Use a simple, readable layout: centered container, max-width 600px.
 
 ### 4f. Broadcast Button Component (`src/components/BroadcastBrevoButton.js`) — NEW
 
@@ -181,14 +191,14 @@ Client component mirroring `BroadcastAiSensyButton`:
 
 ### 4g. Session Page (`src/app/session/[id]/page.js`)
 
-In the DB query, add `brevoApiKey`, `brevoListId`, `brevoTemplateId` to the event include (they're on the event model, already included via `event: true`).
+The event is already fully fetched via `event: true` in the include — no query changes needed.
 
 In the Sharing & Groups card, add `BroadcastBrevoButton` below `BroadcastAiSensyButton`:
 
 ```jsx
 <BroadcastBrevoButton
   sessionId={session.id}
-  disabled={!session.eventId || !session.event?.brevoApiKey || !session.event?.brevoSenderEmail}
+  disabled={!session.eventId || !session.event?.brevoApiKey || !session.event?.brevoSenderEmail || !session.event?.brevoListId}
 />
 ```
 
@@ -201,18 +211,18 @@ In the Sharing & Groups card, add `BroadcastBrevoButton` below `BroadcastAiSensy
 | `src/lib/googleDrive.js` | Header text → newline only; footer → add tagline + confidential |
 | `src/app/api/session/slide/route.js` | Footer → add AI disclaimer |
 | `src/app/session/[id]/page.js` | Three-column layout; import + render BroadcastBrevoButton |
-| `prisma/schema.prisma` | Add `brevoApiKey`, `brevoListId`, `brevoTemplateId` to Event |
+| `prisma/schema.prisma` | Add `brevoApiKey`, `brevoSenderEmail`, `brevoListId` to Event |
 | `src/components/EventEditForm.js` | Add Brevo settings section |
 | `src/app/events/[id]/edit/page.js` | Pass Brevo fields to form |
 | `src/app/api/event/update/route.js` | Handle Brevo fields |
-| `src/app/api/session/broadcast-brevo/route.js` | **NEW** — create + send Brevo campaign |
+| `src/app/api/session/broadcast-brevo/route.js` | **NEW** — build HTML + create + send Brevo campaign |
 | `src/components/BroadcastBrevoButton.js` | **NEW** — send email button |
 
 ---
 
 ## Out of Scope
 
-- Per-contact personalization (all recipients get same template params)
+- Per-contact personalization (all recipients receive the same session email)
 - Scheduling campaigns for later (always sends immediately)
 - Campaign analytics / tracking on the session page
 - Brevo contact management (list membership managed in Brevo directly)
