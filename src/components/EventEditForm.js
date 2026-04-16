@@ -15,6 +15,9 @@ export default function EventEditForm({ event }) {
   const [aiSensyToken, setAiSensyToken] = useState(event.aiSensyToken || "");
   const [broadcastFilter, setBroadcastFilter] = useState(event.broadcastFilter || "no_tags");
   const [broadcastTag, setBroadcastTag] = useState(event.broadcastTag || "");
+  const [brevoApiKey, setBrevoApiKey] = useState(event.brevoApiKey || "");
+  const [brevoSenderEmail, setBrevoSenderEmail] = useState(event.brevoSenderEmail || "");
+  const [brevoListId, setBrevoListId] = useState(event.brevoListId || "");
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
@@ -38,6 +41,9 @@ export default function EventEditForm({ event }) {
           aiSensyToken,
           broadcastFilter,
           broadcastTag,
+          brevoApiKey,
+          brevoSenderEmail,
+          brevoListId,
         }),
       });
       const data = await res.json();
@@ -278,6 +284,52 @@ export default function EventEditForm({ event }) {
           {broadcastFilter === "no_tags" && "Only contacts with zero tags assigned will receive the message."}
           {broadcastFilter === "not_has_tag" && `Contacts that do NOT have the tag "${broadcastTag || "..."}" will receive the message.`}
           {broadcastFilter === "has_tag" && `Only contacts that HAVE the tag "${broadcastTag || "..."}" will receive the message.`}
+        </div>
+      </div>
+
+      {/* Brevo Email */}
+      <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <h2 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--fg-2)", marginBottom: "0.25rem" }}>Brevo Email</h2>
+        <p style={{ fontSize: "0.82rem", color: "var(--fg-3)", marginTop: "-0.5rem" }}>
+          Used to send session summaries to your Brevo contact list.
+        </p>
+
+        <div>
+          <label className="field-label">Brevo API Key</label>
+          <input
+            type="password"
+            className="field-input"
+            placeholder="Your Brevo v3 API key"
+            value={brevoApiKey}
+            onChange={(e) => setBrevoApiKey(e.target.value)}
+            style={{ fontSize: "1rem", padding: "0.9rem 1.1rem" }}
+          />
+        </div>
+
+        <div>
+          <label className="field-label">Sender Email</label>
+          <input
+            type="email"
+            className="field-input"
+            placeholder="sender@yourdomain.com"
+            value={brevoSenderEmail}
+            onChange={(e) => setBrevoSenderEmail(e.target.value)}
+            style={{ fontSize: "1rem", padding: "0.9rem 1.1rem" }}
+          />
+          <p style={{ fontSize: "0.78rem", color: "var(--fg-3)", marginTop: "0.35rem" }}>
+            Must be a verified sender in your Brevo account.
+          </p>
+        </div>
+
+        <div>
+          <label className="field-label">Contact List ID</label>
+          <input
+            className="field-input"
+            placeholder="e.g. 42 — find this in your Brevo Contacts → Lists"
+            value={brevoListId}
+            onChange={(e) => setBrevoListId(e.target.value)}
+            style={{ fontSize: "1rem", padding: "0.9rem 1.1rem" }}
+          />
         </div>
       </div>
 

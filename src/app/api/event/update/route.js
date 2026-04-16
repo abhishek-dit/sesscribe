@@ -27,6 +27,9 @@ export async function POST(request) {
     if (body.aiSensyToken !== undefined)      data.aiSensyToken = body.aiSensyToken || null;
     if (body.broadcastFilter !== undefined)   data.broadcastFilter = body.broadcastFilter;
     if (body.broadcastTag !== undefined)      data.broadcastTag = body.broadcastTag || null;
+    if (body.brevoApiKey !== undefined)       data.brevoApiKey = body.brevoApiKey || null;
+    if (body.brevoSenderEmail !== undefined)  data.brevoSenderEmail = body.brevoSenderEmail || null;
+    if (body.brevoListId !== undefined)       data.brevoListId = body.brevoListId || null;
 
     const event = await prisma.event.update({
       where: { id },

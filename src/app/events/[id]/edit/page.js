@@ -23,6 +23,9 @@ export default async function EditEventPage({ params }) {
     aiSensyToken: event.aiSensyToken,
     broadcastFilter: event.broadcastFilter,
     broadcastTag: event.broadcastTag,
+    brevoApiKey: event.brevoApiKey,
+    brevoSenderEmail: event.brevoSenderEmail,
+    brevoListId: event.brevoListId,
   };
 
   return (
