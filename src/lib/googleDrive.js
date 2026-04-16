@@ -33,6 +33,46 @@ function getAuth() {
   });
 }
 
+export function getDriveClient() {
+  const auth = getAuth();
+  if (!auth) return null;
+  return google.drive({ version: "v3", auth });
+}
+
+export async function uploadAudioToDrive(audioBuffer, filename, folderId) {
+  try {
+    const auth = getAuth();
+    if (!auth) { console.warn("[uploadAudioToDrive] Missing credentials"); return null; }
+    const drive = google.drive({ version: "v3", auth });
+
+    const { Readable } = await import("stream");
+    const stream = Readable.from(audioBuffer);
+
+    const res = await drive.files.create({
+      requestBody: {
+        name: filename,
+        mimeType: "audio/webm",
+        ...(folderId ? { parents: [folderId] } : {}),
+      },
+      media: { mimeType: "audio/webm", body: stream },
+      fields: "id",
+    });
+
+    const fileId = res.data.id;
+
+    await drive.permissions.create({
+      fileId,
+      requestBody: { role: "reader", type: "anyone" },
+    });
+
+    console.log(`[uploadAudioToDrive] Uploaded: ${fileId}`);
+    return { fileId };
+  } catch (err) {
+    console.error("[uploadAudioToDrive]", err.message);
+    return null;
+  }
+}
+
 // ─── Style helpers ───────────────────────────────────────────────────────────
 function rgb(hex) {
   return { red: parseInt(hex.slice(1, 3), 16) / 255, green: parseInt(hex.slice(3, 5), 16) / 255, blue: parseInt(hex.slice(5, 7), 16) / 255 };
@@ -65,11 +105,10 @@ function mkPara(start, end, opts, segId) {
 }
 
 // ─── Shared: create a branded doc with header/footer/logo ────────────────────
-async function createBrandedDoc(docs, drive, { title, displayEvent, displayDate, logoUrl, folderId }) {
+async function createBrandedDoc(docs, drive, { title, displayEvent, displayDate, logoUrl, logo2Url, folderId }) {
   const doc = await docs.documents.create({ requestBody: { title } });
   const documentId = doc.data.documentId;
 
-  // Create header & footer
   const hfRes = await docs.documents.batchUpdate({
     documentId,
     requestBody: { requests: [{ createHeader: { type: "DEFAULT" } }, { createFooter: { type: "DEFAULT" } }] },
@@ -77,11 +116,9 @@ async function createBrandedDoc(docs, drive, { title, displayEvent, displayDate,
   const headerId = hfRes.data.replies[0].createHeader.headerId;
   const footerId = hfRes.data.replies[1].createFooter.footerId;
 
-  // Header text: just the event + tagline (logo goes before this)
-  const headerText = `\n${displayEvent}  |  ${BRAND.tagline}\n`;
-  const footerText = `${displayEvent}  |  ${BRAND.tagline}  |  Confidential\n`;
+  const headerText = `${displayEvent}\n`;
+  const footerText = `This transcript and summary was generated using AI. AI can make mistakes.  |  ${displayEvent}\n`;
 
-  // Set margins + insert header/footer text
   await docs.documents.batchUpdate({
     documentId,
     requestBody: {
@@ -93,21 +130,19 @@ async function createBrandedDoc(docs, drive, { title, displayEvent, displayDate,
     },
   });
 
-  // Style header text
   const hLen = headerText.length - 1;
   const headerFmt = [
-    mkText(1, hLen, { fontSize: 8, color: BRAND.gray, font: BRAND.font }, headerId),
-    mkPara(1, hLen, { spaceAbove: 4, borderBottom: { color: { color: { rgbColor: BRAND.red } }, width: { magnitude: 1.5, unit: "PT" }, padding: { magnitude: 4, unit: "PT" }, dashStyle: "SOLID" } }, headerId),
+    mkText(0, hLen, { fontSize: 9, color: BRAND.gray, font: BRAND.font }, headerId),
+    mkPara(0, hLen, { spaceAbove: 4, borderBottom: { color: { color: { rgbColor: BRAND.red } }, width: { magnitude: 1.5, unit: "PT" }, padding: { magnitude: 4, unit: "PT" }, dashStyle: "SOLID" } }, headerId),
   ];
 
-  // Style footer text
   const fLen = footerText.length - 1;
   headerFmt.push(mkText(0, fLen, { fontSize: 7.5, color: BRAND.gray, font: BRAND.font }, footerId));
   headerFmt.push(mkPara(0, fLen, { alignment: "CENTER", borderTop: { color: { color: { rgbColor: rgb("#E5E7EB") } }, width: { magnitude: 0.5, unit: "PT" }, padding: { magnitude: 6, unit: "PT" }, dashStyle: "SOLID" } }, footerId));
 
   await docs.documents.batchUpdate({ documentId, requestBody: { requests: headerFmt } });
 
-  // Insert logo at index 0 in header (before the text, so text wraps below)
+  // Insert logo1 at index 0 (left side) — 72×72 PT
   try {
     await docs.documents.batchUpdate({
       documentId,
@@ -116,16 +151,37 @@ async function createBrandedDoc(docs, drive, { title, displayEvent, displayDate,
           insertInlineImage: {
             location: { segmentId: headerId, index: 0 },
             uri: logoUrl || BRAND.defaultLogoUrl,
-            objectSize: { height: { magnitude: 40, unit: "PT" }, width: { magnitude: 40, unit: "PT" } },
+            objectSize: { height: { magnitude: 72, unit: "PT" }, width: { magnitude: 72, unit: "PT" } },
           },
         }],
       },
     });
   } catch (e) {
-    console.warn("[GoogleDocs] Logo insertion failed:", e.message);
+    console.warn("[GoogleDocs] Logo1 insertion failed:", e.message);
   }
 
-  // Make the doc viewable by anyone with the link
+  // Insert logo2 at end of header text (right side)
+  // After logo1 insert at index 0, the \n is now at index headerText.length.
+  // Inserting at headerText.length places logo2 immediately before the \n.
+  if (logo2Url) {
+    try {
+      await docs.documents.batchUpdate({
+        documentId,
+        requestBody: {
+          requests: [{
+            insertInlineImage: {
+              location: { segmentId: headerId, index: headerText.length },
+              uri: logo2Url,
+              objectSize: { height: { magnitude: 72, unit: "PT" }, width: { magnitude: 72, unit: "PT" } },
+            },
+          }],
+        },
+      });
+    } catch (e) {
+      console.warn("[GoogleDocs] Logo2 insertion failed:", e.message);
+    }
+  }
+
   try {
     await drive.permissions.create({
       fileId: documentId,
@@ -133,7 +189,6 @@ async function createBrandedDoc(docs, drive, { title, displayEvent, displayDate,
     });
   } catch (e) { console.warn("[GoogleDocs] Permission set failed:", e.message); }
 
-  // Move to folder
   if (folderId) {
     try {
       const file = await drive.files.get({ fileId: documentId, fields: "parents" });
@@ -155,7 +210,6 @@ function buildTitleBlock(sessionTitle, displayEvent, displayDate) {
   body += add(`${sessionTitle}\n`, "title");
   body += add(`${displayEvent}\n`, "event");
   body += add(`${displayDate}\n`, "date");
-  body += add(`${BRAND.tagline}\n`, "tagline");
   body += add("\n", "spacer");
   return { body, parts, cursor };
 }
@@ -174,17 +228,14 @@ function formatTitleBlock(parts) {
 
   const dt = p("date");
   fmt.push(mkText(dt.start, dt.end - 1, { fontSize: 10, color: BRAND.gray, font: BRAND.font }));
-
-  const tg = p("tagline");
-  fmt.push(mkText(tg.start, tg.end - 1, { italic: true, fontSize: 9, color: BRAND.gray, font: BRAND.font }));
-  fmt.push(mkPara(tg.start, tg.end - 1, { spaceBelow: 14, borderBottom: { color: { color: { rgbColor: BRAND.red } }, width: { magnitude: 2, unit: "PT" }, padding: { magnitude: 10, unit: "PT" }, dashStyle: "SOLID" } }));
+  fmt.push(mkPara(dt.start, dt.end - 1, { spaceBelow: 14, borderBottom: { color: { color: { rgbColor: BRAND.red } }, width: { magnitude: 2, unit: "PT" }, padding: { magnitude: 10, unit: "PT" }, dashStyle: "SOLID" } }));
 
   return fmt;
 }
 
 // ─── Main Export: creates two docs ───────────────────────────────────────────
 export async function createMeetingDoc(
-  sessionTitle, summary, actionPoints, transcriptText, folderId, eventName, eventLogoUrl
+  sessionTitle, summary, actionPoints, transcriptText, folderId, eventName, eventLogoUrl, eventLogo2Url
 ) {
   try {
     const auth = getAuth();
@@ -204,7 +255,7 @@ export async function createMeetingDoc(
     // ═══════════════════════════════════════════════════════════════════════
     const summaryDoc = await createBrandedDoc(docs, drive, {
       title: `${sessionTitle} — Summary`,
-      displayEvent, displayDate, logoUrl, folderId,
+      displayEvent, displayDate, logoUrl, logo2Url: eventLogo2Url || null, folderId,
     });
 
     // Build body
@@ -250,7 +301,7 @@ export async function createMeetingDoc(
     // ═══════════════════════════════════════════════════════════════════════
     const transcriptDoc = await createBrandedDoc(docs, drive, {
       title: `${sessionTitle} — Transcript`,
-      displayEvent, displayDate, logoUrl, folderId,
+      displayEvent, displayDate, logoUrl, logo2Url: eventLogo2Url || null, folderId,
     });
 
     const tb2 = buildTitleBlock(sessionTitle, displayEvent, displayDate);
