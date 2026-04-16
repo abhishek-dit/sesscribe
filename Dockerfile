@@ -34,6 +34,7 @@ WORKDIR /app
 # Chromium for puppeteer-based slide screenshot
 RUN apk add --no-cache \
     chromium \
+    ffmpeg \
     nss \
     freetype \
     harfbuzz \
