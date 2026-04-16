@@ -20,7 +20,7 @@ export default function BroadcastBrevoButton({ sessionId, disabled }) {
         body: JSON.stringify({ sessionId }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Unknown error");
+      if (!res.ok || !data.success) throw new Error(data.error || `Request failed: ${res.status}`);
       setSent(true);
       setTimeout(() => setSent(false), 3000);
     } catch (err) {
