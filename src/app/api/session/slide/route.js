@@ -16,7 +16,7 @@ function getChromiumPath() {
   return candidates.find((p) => p && existsSync(p));
 }
 
-function buildSlideHtml({ eventName, sessionTitle, highlights, logoBase64, logoMime }) {
+function buildSlideHtml({ eventName, sessionTitle, highlights, logoBase64, logoMime, logo2Base64, logo2Mime }) {
   const logoSrc = logoBase64
     ? `data:${logoMime};base64,${logoBase64}`
     : null;
@@ -110,6 +110,26 @@ function buildSlideHtml({ eventName, sessionTitle, highlights, logoBase64, logoM
     object-fit: contain;
   }
 
+  .logo-wrap-right {
+    flex-shrink: 0;
+    width: 140px;
+    height: 140px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    margin-left: auto;
+  }
+
+  .logo-wrap-right img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
   .logo-placeholder {
     width: 100%;
     height: 100%;
@@ -143,13 +163,6 @@ function buildSlideHtml({ eventName, sessionTitle, highlights, logoBase64, logoM
     line-height: 1.15;
     letter-spacing: -0.5px;
     margin-bottom: 10px;
-  }
-
-  .brand-tag {
-    font-size: 22px;
-    color: #94A3B8;
-    font-weight: 400;
-    letter-spacing: 0.3px;
   }
 
   /* ── Divider ── */
@@ -228,8 +241,11 @@ function buildSlideHtml({ eventName, sessionTitle, highlights, logoBase64, logoM
     <div class="header-text">
       <div class="event-name">${escapeHtml(eventName)}</div>
       <div class="session-title">${escapeHtml(sessionTitle)}</div>
-      <div class="brand-tag">SesScribe — An InsideOut Event Product</div>
     </div>
+    ${logo2Base64 ? `
+    <div class="logo-wrap-right">
+      <img src="data:${logo2Mime};base64,${logo2Base64}" alt="Second Logo" />
+    </div>` : ""}
   </div>
 
   <div class="divider"></div>
@@ -325,12 +341,30 @@ export async function POST(request) {
       console.warn("[Slide] Could not fetch logo:", e.message);
     }
 
+    const logo2Url = session.event?.logo2Url || null;
+    let logo2Base64 = null;
+    let logo2Mime = "image/png";
+    if (logo2Url) {
+      try {
+        const logo2Res = await fetch(logo2Url);
+        if (logo2Res.ok) {
+          logo2Mime = logo2Res.headers.get("content-type")?.split(";")[0] || "image/png";
+          const logo2Buf = Buffer.from(await logo2Res.arrayBuffer());
+          logo2Base64 = logo2Buf.toString("base64");
+        }
+      } catch (e) {
+        console.warn("[Slide] Could not fetch logo2:", e.message);
+      }
+    }
+
     const html = buildSlideHtml({
       eventName,
       sessionTitle: session.title,
       highlights,
       logoBase64,
       logoMime,
+      logo2Base64,
+      logo2Mime,
     });
 
     // Screenshot with Puppeteer
