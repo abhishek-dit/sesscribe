@@ -37,6 +37,9 @@ model Event {
   aiSensyToken     String?   // AiSensy JWT session token (expires ~30min, refresh before broadcast)
   broadcastFilter  String    @default("no_tags") // "all" | "no_tags" | "has_tag" | "not_has_tag"
   broadcastTag     String?   // Tag name/ID for has_tag / not_has_tag filters
+  brevoApiKey      String?   // Brevo API key for email campaigns
+  brevoSenderEmail String?   // Verified sender email in Brevo account
+  brevoListId      String?   // Brevo contact list ID (parsed to int on use)
   sessions         Session[] @relation("EventSessions")
 }
 
