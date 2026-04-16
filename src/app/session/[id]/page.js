@@ -233,6 +233,39 @@ export default async function SessionResult({ params }) {
           transition: transform 0.2s;
         }
         details.fallback-transcript[open] summary::after { transform: rotate(180deg); }
+        .audio-card {
+          background: var(--surface-1);
+          border: 1px solid var(--border);
+          border-top: 3px solid #10b981;
+          border-radius: var(--radius);
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+        .audio-player {
+          width: 100%;
+          accent-color: #10b981;
+          border-radius: 8px;
+        }
+        .audio-download-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.65rem 1.2rem;
+          background: rgba(16,185,129,0.12);
+          border: 1px solid rgba(16,185,129,0.3);
+          border-radius: 8px;
+          color: #34d399;
+          font-size: 0.85rem;
+          font-weight: 600;
+          text-decoration: none;
+          transition: background 0.15s;
+          width: fit-content;
+        }
+        .audio-download-btn:hover {
+          background: rgba(16,185,129,0.2);
+        }
       `}</style>
 
       <div className="page-shell">
@@ -410,6 +443,36 @@ export default async function SessionResult({ params }) {
                   </div>
                 )}
               </div>
+
+              {/* Recording */}
+              {session.audioFileId && (
+                <div className="audio-card">
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                    <div style={{
+                      width: "30px", height: "30px", borderRadius: "8px",
+                      background: "rgba(16,185,129,0.15)",
+                      display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem",
+                    }}>🎙</div>
+                    <h2 style={{ fontSize: "1rem", fontWeight: "700" }}>Session Recording</h2>
+                  </div>
+                  <audio
+                    className="audio-player"
+                    controls
+                    preload="metadata"
+                    src={`/api/session/audio?sessionId=${session.id}`}
+                  />
+                  <a
+                    className="audio-download-btn"
+                    href={`/api/session/audio/download?sessionId=${session.id}`}
+                    download
+                  >
+                    ⬇ Download as MP3
+                  </a>
+                  <p style={{ fontSize: "0.75rem", color: "var(--fg-3)", margin: 0 }}>
+                    Audio recorded during this session. Download converts to MP3 — may take a moment for long recordings.
+                  </p>
+                </div>
+              )}
 
               {/* Speaker legend */}
               {speakerSet.length > 0 && (
