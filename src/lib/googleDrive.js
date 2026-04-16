@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { Readable } from "stream";
 
 // ─── TiE Brand Constants ─────────────────────────────────────────────────────
 const BRAND = {
@@ -10,7 +11,6 @@ const BRAND = {
   defaultLogoUrl: "https://media.licdn.com/dms/image/v2/D560BAQG5CiuZGPpnaw/company-logo_200_200/B56ZydvRqHHYAI-/0/1772172942682/tie_mysuru_logo?e=1777507200&v=beta&t=YyJG7jxRg-1aiS5p02FNyYoIFJnCLZZhNzJNVInc883U",
   font: "Roboto",
   fontMono: "Roboto Mono",
-  tagline: "SesScribe — An InsideOut Event Product",
 };
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -41,11 +41,9 @@ export function getDriveClient() {
 
 export async function uploadAudioToDrive(audioBuffer, filename, folderId) {
   try {
-    const auth = getAuth();
-    if (!auth) { console.warn("[uploadAudioToDrive] Missing credentials"); return null; }
-    const drive = google.drive({ version: "v3", auth });
+    const drive = getDriveClient();
+    if (!drive) { console.warn("[uploadAudioToDrive] Missing credentials"); return null; }
 
-    const { Readable } = await import("stream");
     const stream = Readable.from(audioBuffer);
 
     const res = await drive.files.create({
