@@ -158,7 +158,7 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         name: campaignName,
-        subject: session.title,
+        subject: `${session.title} — Session Summary`,
         sender: { name: event.name, email: event.brevoSenderEmail },
         recipients: { listIds: [listId] },
         htmlContent,
