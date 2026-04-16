@@ -6,6 +6,7 @@ import ExportDocsButton from "@/components/ExportDocsButton";
 import EventSelector from "@/components/EventSelector";
 import BroadcastAiSensyButton from "@/components/BroadcastAiSensyButton";
 import HighlightsSlideButton from "@/components/HighlightsSlideButton";
+import BroadcastBrevoButton from "@/components/BroadcastBrevoButton";
 
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
@@ -109,12 +110,19 @@ export default async function SessionResult({ params }) {
       <style>{`
         .results-grid {
           display: grid;
-          grid-template-columns: minmax(350px, 1.2fr) 2fr;
+          grid-template-columns: 0.7fr 1.1fr 1.5fr;
           gap: 1.5rem;
           align-items: start;
         }
+        @media (max-width: 1200px) {
+          .results-grid { grid-template-columns: 1fr 1.8fr; }
+          .results-grid > :first-child { grid-column: 1; }
+          .results-grid > :nth-child(2) { grid-column: 1; }
+          .results-grid > :nth-child(3) { grid-column: 2; grid-row: 1 / span 2; }
+        }
         @media (max-width: 900px) {
           .results-grid { grid-template-columns: 1fr; }
+          .results-grid > * { grid-column: 1 !important; grid-row: auto !important; }
         }
         .stat-row {
           display: grid;
@@ -365,107 +373,29 @@ export default async function SessionResult({ params }) {
           {/* Main grid */}
           <div className="results-grid" style={{ animation: "fadeUp 0.5s ease-out 0.15s both" }}>
 
-            {/* ── Left column ─────────────────────────────────────────────── */}
+            {/* ── Left column — Actions ───────────────────────────────────── */}
             <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-              
-              {/* Event & Sharing Configuration */}
+
+              {/* Sharing & Groups */}
               <div className="card" style={{ borderTop: "3px solid var(--primary)", display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.5rem" }}>
-                  <div style={{
-                    width: "30px", height: "30px", borderRadius: "8px",
-                    background: "rgba(59,130,246,0.15)",
-                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem",
-                  }}>⚙️</div>
+                  <div style={{ width: "30px", height: "30px", borderRadius: "8px", background: "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem" }}>⚙️</div>
                   <h2 style={{ fontSize: "1rem", fontWeight: "700" }}>Sharing & Groups</h2>
                 </div>
                 <EventSelector sessionId={session.id} currentEventId={session.eventId} events={events} />
                 <BroadcastAiSensyButton sessionId={session.id} disabled={!session.eventId || !session.event?.whatsappApiKey} />
-              </div>
-
-              {/* AI Summary */}
-              <div className="card" style={{ borderTop: "3px solid var(--primary)", display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem" }}>
-                  <div style={{
-                    width: "30px", height: "30px", borderRadius: "8px",
-                    background: "rgba(139,92,246,0.15)",
-                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem",
-                  }}>✨</div>
-                  <h2 style={{ fontSize: "1rem", fontWeight: "700" }}>AI Summary</h2>
-                </div>
-                <p className="prose" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-                  {displaySummary}
-                </p>
-              </div>
-
-              {/* Key Highlights */}
-              <div className="card" style={{ borderTop: "3px solid var(--pink)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem" }}>
-                  <div style={{
-                    width: "30px", height: "30px", borderRadius: "8px",
-                    background: "rgba(217,70,239,0.12)",
-                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem",
-                  }}>💡</div>
-                  <h2 style={{ fontSize: "1rem", fontWeight: "700" }}>Key Highlights</h2>
-                  {actionPoints.length > 0 && (
-                    <span style={{
-                      marginLeft: "auto",
-                      background: "rgba(217,70,239,0.12)",
-                      color: "#e879f9",
-                      border: "1px solid rgba(217,70,239,0.25)",
-                      borderRadius: "99px",
-                      fontSize: "0.72rem",
-                      fontWeight: "600",
-                      padding: "0.15rem 0.6rem",
-                    }}>
-                      {actionPoints.length}
-                    </span>
-                  )}
-                </div>
-
-                <HighlightsSlideButton
-                  sessionId={session.id}
-                  actionPoints={actionPoints}
-                  existingSlide={session.slideImage ? JSON.parse(session.slideImage) : null}
-                />
-
-                {actionPoints.length === 0 ? (
-                  <p style={{ color: "var(--fg-3)", fontSize: "0.88rem" }}>No highlights generated.</p>
-                ) : (
-                  <div>
-                    {actionPoints.map((ap, i) => (
-                      <div key={i} className="action-item">
-                        <div className="action-check">
-                          <span style={{ fontSize: "0.6rem", color: "var(--primary-2)" }}>✓</span>
-                        </div>
-                        <p style={{ fontSize: "0.9rem", color: "var(--fg-2)", lineHeight: 1.6 }}>{ap}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <BroadcastBrevoButton sessionId={session.id} disabled={!session.eventId || !session.event?.brevoApiKey || !session.event?.brevoSenderEmail || !session.event?.brevoListId} />
               </div>
 
               {/* Recording */}
               {session.audioFileId && (
                 <div className="audio-card">
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                    <div style={{
-                      width: "30px", height: "30px", borderRadius: "8px",
-                      background: "rgba(16,185,129,0.15)",
-                      display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem",
-                    }}>🎙</div>
+                    <div style={{ width: "30px", height: "30px", borderRadius: "8px", background: "rgba(16,185,129,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem" }}>🎙</div>
                     <h2 style={{ fontSize: "1rem", fontWeight: "700" }}>Session Recording</h2>
                   </div>
-                  <audio
-                    className="audio-player"
-                    controls
-                    preload="metadata"
-                    src={`/api/session/audio?sessionId=${session.id}`}
-                  />
-                  <a
-                    className="audio-download-btn"
-                    href={`/api/session/audio/download?sessionId=${session.id}`}
-                    download
-                  >
+                  <audio className="audio-player" controls preload="metadata" src={`/api/session/audio?sessionId=${session.id}`} />
+                  <a className="audio-download-btn" href={`/api/session/audio/download?sessionId=${session.id}`} download>
                     ⬇ Download as MP3
                   </a>
                   <p style={{ fontSize: "0.75rem", color: "var(--fg-3)", margin: 0 }}>
@@ -474,7 +404,7 @@ export default async function SessionResult({ params }) {
                 </div>
               )}
 
-              {/* Speaker legend */}
+              {/* Speakers */}
               {speakerSet.length > 0 && (
                 <div className="card">
                   <h2 style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--fg-2)", marginBottom: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -485,10 +415,7 @@ export default async function SessionResult({ params }) {
                       const col = speakerMap.get(sp);
                       return (
                         <div key={sp} style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
-                          <div style={{
-                            width: "10px", height: "10px", borderRadius: "50%",
-                            background: col.dot, flexShrink: 0,
-                          }} />
+                          <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: col.dot, flexShrink: 0 }} />
                           <span style={{ fontSize: "0.88rem", color: "var(--fg-2)", fontWeight: "500" }}>{sp}</span>
                           <span style={{ marginLeft: "auto", fontSize: "0.78rem", color: "var(--fg-3)" }}>
                             {primaryTranscript.filter((s) => s.speaker === sp).length} segments
@@ -501,17 +428,63 @@ export default async function SessionResult({ params }) {
               )}
             </div>
 
+            {/* ── Center column — Summary and Highlights ───────────────────── */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+
+              {/* AI Summary */}
+              <div className="card" style={{ borderTop: "3px solid var(--primary)", display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem" }}>
+                  <div style={{ width: "30px", height: "30px", borderRadius: "8px", background: "rgba(139,92,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem" }}>✨</div>
+                  <h2 style={{ fontSize: "1rem", fontWeight: "700" }}>AI Summary</h2>
+                </div>
+                <div style={{ maxHeight: "400px", overflowY: "auto", paddingRight: "0.25rem" }}>
+                  <p className="prose" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+                    {displaySummary}
+                  </p>
+                </div>
+              </div>
+
+              {/* Key Highlights */}
+              <div className="card" style={{ borderTop: "3px solid var(--pink)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem" }}>
+                  <div style={{ width: "30px", height: "30px", borderRadius: "8px", background: "rgba(217,70,239,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem" }}>💡</div>
+                  <h2 style={{ fontSize: "1rem", fontWeight: "700" }}>Key Highlights</h2>
+                  {actionPoints.length > 0 && (
+                    <span style={{ marginLeft: "auto", background: "rgba(217,70,239,0.12)", color: "#e879f9", border: "1px solid rgba(217,70,239,0.25)", borderRadius: "99px", fontSize: "0.72rem", fontWeight: "600", padding: "0.15rem 0.6rem" }}>
+                      {actionPoints.length}
+                    </span>
+                  )}
+                </div>
+
+                <HighlightsSlideButton
+                  sessionId={session.id}
+                  actionPoints={actionPoints}
+                  existingSlide={session.slideImage ? JSON.parse(session.slideImage) : null}
+                />
+
+                <div style={{ maxHeight: "350px", overflowY: "auto", paddingRight: "0.25rem", marginTop: "0.75rem" }}>
+                  {actionPoints.length === 0 ? (
+                    <p style={{ color: "var(--fg-3)", fontSize: "0.88rem" }}>No highlights generated.</p>
+                  ) : (
+                    <div>
+                      {actionPoints.map((ap, i) => (
+                        <div key={i} className="action-item">
+                          <div className="action-check">
+                            <span style={{ fontSize: "0.6rem", color: "var(--primary-2)" }}>✓</span>
+                          </div>
+                          <p style={{ fontSize: "0.9rem", color: "var(--fg-2)", lineHeight: 1.6 }}>{ap}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* ── Right column — Transcript ────────────────────────────────── */}
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
               {/* Card header */}
-              <div style={{
-                padding: "1.2rem 1.75rem",
-                borderBottom: "1px solid var(--border)",
-                background: "var(--surface-2)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}>
+              <div style={{ padding: "1.2rem 1.75rem", borderBottom: "1px solid var(--border)", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <h2 style={{ fontSize: "1rem", fontWeight: "700" }}>
                     {batchTranscript ? "Final Transcript (Batch AI)" : "Full Transcript"}
@@ -562,9 +535,9 @@ export default async function SessionResult({ params }) {
               </div>
             </div>
 
-            {/* If we have a batch transcript, show the live one as a collapsible fallback */}
+            {/* Live transcript fallback — spans columns 2-3 on wide screens */}
             {batchTranscript && liveTranscript.length > 0 && (
-              <details className="fallback-transcript">
+              <details className="fallback-transcript" style={{ gridColumn: "2 / -1" }}>
                 <summary>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <span>Original Live Transcript (Fallback)</span>
@@ -573,7 +546,6 @@ export default async function SessionResult({ params }) {
                     </span>
                   </div>
                 </summary>
-
                 <div className="transcript-scroll" style={{ padding: "1.25rem 1.75rem", borderTop: "1px solid var(--border)", maxHeight: "400px" }}>
                   {liveTranscript.map((seg, idx) => {
                     const col = getSpeakerColor(seg.speaker, speakerMap);
