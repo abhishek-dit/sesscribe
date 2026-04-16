@@ -17,6 +17,7 @@ model Session {
   summary      String?
   actionPoints String?
   slideImage   String?           // Stored as JSON string: { mimeType, data (base64) }
+  audioFileId  String?           // Google Drive file ID for the recorded WebM audio
   attendees    SessionAttendee[]
   event        Event?            @relation("EventSessions", fields: [eventId], references: [id])
   eventId      String?
@@ -31,6 +32,7 @@ model Event {
   whatsappNumber   String    // Default number to send from
   campaignName     String?   // AiSensy template/campaign name
   logoUrl          String?   // Logo URL for Google Docs branding
+  logo2Url         String?   // Second logo URL — right side of Google Docs header and slide
   aiSensyProjectId String?   // AiSensy assistantId for contacts API
   aiSensyToken     String?   // AiSensy JWT session token (expires ~30min, refresh before broadcast)
   broadcastFilter  String    @default("no_tags") // "all" | "no_tags" | "has_tag" | "not_has_tag"
