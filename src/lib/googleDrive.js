@@ -114,8 +114,8 @@ async function createBrandedDoc(docs, drive, { title, displayEvent, displayDate,
   const headerId = hfRes.data.replies[0].createHeader.headerId;
   const footerId = hfRes.data.replies[1].createFooter.footerId;
 
-  const headerText = `${displayEvent}\n`;
-  const footerText = `This transcript and summary was generated using AI. AI can make mistakes.  |  ${displayEvent}\n`;
+  const headerText = "\n";
+  const footerText = `This transcript and summary was generated using AI. AI can make mistakes.  |  ${displayEvent}  |  SesScribe — An InsideOut Event Product  |  Confidential\n`;
 
   await docs.documents.batchUpdate({
     documentId,
