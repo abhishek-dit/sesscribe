@@ -38,7 +38,7 @@ function parseActionPoints(raw = "") {
 }
 
 // Build the email HTML dynamically per session
-function buildEmailHtml({ sessionTitle, sessionDate, eventName, summaryUrl, actionPoints }) {
+function buildEmailHtml({ sessionTitle, sessionDate, eventName, summaryUrl, actionPoints, logo1Url, logo2Url }) {
   const highlightItems = actionPoints
     .map((ap) => `<li style="margin-bottom:10px;color:#334155;font-size:15px;line-height:1.6;">${escHtml(ap)}</li>`)
     .join("\n        ");
@@ -65,6 +65,20 @@ function buildEmailHtml({ sessionTitle, sessionDate, eventName, summaryUrl, acti
        </ul>`
     : "";
 
+  // Logo bar — table layout for email client compatibility
+  const logoBar = (logo1Url || logo2Url)
+    ? `<table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-bottom:2px solid #CC0000;">
+        <tr>
+          <td style="padding:16px 24px;vertical-align:middle;">
+            ${logo1Url ? `<img src="${encodeURI(logo1Url)}" alt="${escHtml(eventName)}" height="48" style="height:48px;width:auto;max-width:180px;display:block;" />` : ""}
+          </td>
+          ${logo2Url ? `<td style="padding:16px 24px;vertical-align:middle;text-align:right;">
+            <img src="${encodeURI(logo2Url)}" alt="" height="48" style="height:48px;width:auto;max-width:180px;display:block;margin-left:auto;" />
+          </td>` : ""}
+        </tr>
+      </table>`
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -74,6 +88,8 @@ function buildEmailHtml({ sessionTitle, sessionDate, eventName, summaryUrl, acti
 </head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;">
   <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;margin-top:24px;margin-bottom:24px;">
+
+    ${logoBar}
 
     <!-- Header bar -->
     <div style="background:#CC0000;padding:24px 32px;">
@@ -141,6 +157,8 @@ export async function POST(request) {
       eventName: event.name,
       summaryUrl,
       actionPoints,
+      logo1Url: event.logoUrl || null,
+      logo2Url: event.logo2Url || null,
     });
 
     const campaignName = `${session.title} — ${new Date().toLocaleDateString("en-IN")}`;
