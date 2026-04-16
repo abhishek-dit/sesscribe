@@ -129,10 +129,11 @@ async function createBrandedDoc(docs, drive, { title, displayEvent, displayDate,
   });
 
   const hLen = headerText.length - 1;
-  const headerFmt = [
-    mkText(0, hLen, { fontSize: 9, color: BRAND.gray, font: BRAND.font }, headerId),
-    mkPara(0, hLen, { spaceAbove: 4, borderBottom: { color: { color: { rgbColor: BRAND.red } }, width: { magnitude: 1.5, unit: "PT" }, padding: { magnitude: 4, unit: "PT" }, dashStyle: "SOLID" } }, headerId),
-  ];
+  const headerFmt = [];
+  if (hLen > 0) {
+    headerFmt.push(mkText(0, hLen, { fontSize: 9, color: BRAND.gray, font: BRAND.font }, headerId));
+    headerFmt.push(mkPara(0, hLen, { spaceAbove: 4, borderBottom: { color: { color: { rgbColor: BRAND.red } }, width: { magnitude: 1.5, unit: "PT" }, padding: { magnitude: 4, unit: "PT" }, dashStyle: "SOLID" } }, headerId));
+  }
 
   const fLen = footerText.length - 1;
   headerFmt.push(mkText(0, fLen, { fontSize: 7.5, color: BRAND.gray, font: BRAND.font }, footerId));
