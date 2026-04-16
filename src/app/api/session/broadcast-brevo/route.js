@@ -1,5 +1,13 @@
 import prisma from "@/lib/prisma";
 
+function escHtml(str = "") {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 // Extract Google Doc URLs from session summary (same logic as session page)
 function extractDocUrls(summary = "") {
   let summaryUrl = null;
@@ -32,12 +40,12 @@ function parseActionPoints(raw = "") {
 // Build the email HTML dynamically per session
 function buildEmailHtml({ sessionTitle, sessionDate, eventName, summaryUrl, actionPoints }) {
   const highlightItems = actionPoints
-    .map((ap) => `<li style="margin-bottom:10px;color:#334155;font-size:15px;line-height:1.6;">${ap}</li>`)
+    .map((ap) => `<li style="margin-bottom:10px;color:#334155;font-size:15px;line-height:1.6;">${escHtml(ap)}</li>`)
     .join("\n        ");
 
   const summaryButton = summaryUrl
     ? `<div style="text-align:center;margin:28px 0;">
-        <a href="${summaryUrl}"
+        <a href="${encodeURI(summaryUrl)}"
            style="display:inline-block;background:#CC0000;color:#ffffff;text-decoration:none;
                   padding:14px 32px;border-radius:6px;font-weight:700;font-size:15px;
                   font-family:Arial,Helvetica,sans-serif;">
@@ -62,20 +70,20 @@ function buildEmailHtml({ sessionTitle, sessionDate, eventName, summaryUrl, acti
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${sessionTitle}</title>
+  <title>${escHtml(sessionTitle)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;">
   <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;margin-top:24px;margin-bottom:24px;">
 
     <!-- Header bar -->
     <div style="background:#CC0000;padding:24px 32px;">
-      <p style="margin:0;color:rgba(255,255,255,0.8);font-size:13px;text-transform:uppercase;letter-spacing:0.06em;">${eventName}</p>
-      <h1 style="margin:6px 0 0;color:#ffffff;font-size:22px;font-weight:700;line-height:1.3;">${sessionTitle}</h1>
+      <p style="margin:0;color:rgba(255,255,255,0.8);font-size:13px;text-transform:uppercase;letter-spacing:0.06em;">${escHtml(eventName)}</p>
+      <h1 style="margin:6px 0 0;color:#ffffff;font-size:22px;font-weight:700;line-height:1.3;">${escHtml(sessionTitle)}</h1>
     </div>
 
     <!-- Body -->
     <div style="padding:32px;">
-      <p style="margin:0 0 4px;color:#64748b;font-size:13px;">${sessionDate}</p>
+      <p style="margin:0 0 4px;color:#64748b;font-size:13px;">${escHtml(sessionDate)}</p>
 
       ${summaryButton}
       ${highlightsSection}
@@ -178,7 +186,7 @@ export async function POST(request) {
       const errBody = await sendRes.text();
       console.error("[broadcast-brevo] Campaign send failed:", errBody);
       return Response.json(
-        { error: `Brevo campaign send failed: ${sendRes.status} — ${errBody}` },
+        { error: `Brevo campaign send failed: ${sendRes.status} — ${errBody}`, campaignId },
         { status: 502 }
       );
     }
