@@ -389,7 +389,7 @@ export default async function SessionResult({ params }) {
               </div>
 
               {/* Recording */}
-              {session.audioFileId && (
+              {(session.audioFileId || session.audioLocalPath) && (
                 <div className="audio-card">
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                     <div style={{ width: "30px", height: "30px", borderRadius: "8px", background: "rgba(16,185,129,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9rem" }}>🎙</div>

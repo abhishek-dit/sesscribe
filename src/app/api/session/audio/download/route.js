@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { spawn } from "child_process";
 import prisma from "@/lib/prisma";
 import { getDriveClient } from "@/lib/googleDrive";
@@ -10,22 +12,17 @@ export async function GET(request) {
 
     const session = await prisma.session.findUnique({
       where: { id: sessionId },
-      select: { audioFileId: true, title: true },
+      select: { audioFileId: true, audioLocalPath: true, title: true },
     });
 
-    if (!session?.audioFileId) {
+    if (!session?.audioFileId && !session?.audioLocalPath) {
       return Response.json({ error: "No audio recording found for this session" }, { status: 404 });
     }
 
-    const drive = getDriveClient();
-    if (!drive) return Response.json({ error: "Drive not configured" }, { status: 500 });
+    const safeTitle = (session.title || sessionId).replace(/[^a-z0-9\s-]/gi, "_").trim();
+    const filename = `${safeTitle}.mp3`;
 
-    const driveRes = await drive.files.get(
-      { fileId: session.audioFileId, alt: "media" },
-      { responseType: "stream" }
-    );
-
-    // Spawn ffmpeg: stdin=webm, stdout=mp3
+    // Spawn ffmpeg: convert webm → mp3
     const ffmpeg = spawn("ffmpeg", [
       "-i", "pipe:0",
       "-f", "mp3",
@@ -34,11 +31,25 @@ export async function GET(request) {
       "pipe:1",
     ]);
 
-    // Pipe Drive stream into ffmpeg stdin
-    driveRes.data.pipe(ffmpeg.stdin);
     ffmpeg.stderr.on("data", (d) => process.stdout.write("[ffmpeg] " + d.toString()));
 
-    // Convert ffmpeg stdout (Node Readable) to Web ReadableStream
+    if (session.audioFileId) {
+      // Source: Google Drive
+      const drive = getDriveClient();
+      if (!drive) return Response.json({ error: "Drive not configured" }, { status: 500 });
+
+      const driveRes = await drive.files.get(
+        { fileId: session.audioFileId, alt: "media" },
+        { responseType: "stream" }
+      );
+      driveRes.data.pipe(ffmpeg.stdin);
+    } else {
+      // Source: local file
+      const absPath = path.join(process.cwd(), session.audioLocalPath);
+      const fileStream = fs.createReadStream(absPath);
+      fileStream.pipe(ffmpeg.stdin);
+    }
+
     const webStream = new ReadableStream({
       start(controller) {
         ffmpeg.stdout.on("data", (chunk) => controller.enqueue(chunk));
@@ -49,9 +60,6 @@ export async function GET(request) {
         ffmpeg.kill("SIGKILL");
       },
     });
-
-    const safeTitle = (session.title || sessionId).replace(/[^a-z0-9\s-]/gi, "_").trim();
-    const filename = `${safeTitle}.mp3`;
 
     return new Response(webStream, {
       headers: {

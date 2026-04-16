@@ -1,5 +1,9 @@
+import fs from "fs/promises";
+import path from "path";
 import prisma from "@/lib/prisma";
 import { uploadAudioToDrive } from "@/lib/googleDrive";
+
+const AUDIO_DIR = path.join(process.cwd(), "uploads", "audio");
 
 async function runDeepgramBatch(audioBuffer) {
   const dgRes = await fetch(
@@ -83,8 +87,20 @@ export async function POST(request) {
     if (driveResult.status === "fulfilled" && driveResult.value?.fileId) {
       updateData.audioFileId = driveResult.value.fileId;
       console.log(`[upload-audio] Audio Drive fileId: ${driveResult.value.fileId}`);
-    } else if (driveResult.status === "rejected") {
-      console.error("[upload-audio] Drive upload failed:", driveResult.reason?.message);
+    } else {
+      // Drive unavailable or upload failed — save locally so Recording section still works
+      if (driveResult.status === "rejected") {
+        console.error("[upload-audio] Drive upload failed:", driveResult.reason?.message);
+      }
+      try {
+        await fs.mkdir(AUDIO_DIR, { recursive: true });
+        const localFilename = `${sessionId}.webm`;
+        await fs.writeFile(path.join(AUDIO_DIR, localFilename), audioBuffer);
+        updateData.audioLocalPath = `uploads/audio/${localFilename}`;
+        console.log(`[upload-audio] Saved locally: ${updateData.audioLocalPath}`);
+      } catch (localErr) {
+        console.error("[upload-audio] Local save failed:", localErr.message);
+      }
     }
 
     if (Object.keys(updateData).length > 0) {

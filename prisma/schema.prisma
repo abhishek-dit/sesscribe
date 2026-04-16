@@ -18,6 +18,7 @@ model Session {
   actionPoints String?
   slideImage   String?           // Stored as JSON string: { mimeType, data (base64) }
   audioFileId  String?           // Google Drive file ID for the recorded WebM audio
+  audioLocalPath String?         // Local filesystem path (relative to app root) when Drive is unavailable
   attendees    SessionAttendee[]
   event        Event?            @relation("EventSessions", fields: [eventId], references: [id])
   eventId      String?

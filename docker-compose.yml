@@ -77,6 +77,8 @@ services:
       DATABASE_URL: postgresql://sesscribe:${POSTGRES_PASSWORD:-sesscribe_secret}@postgres:5432/sesscribe
       REDIS_URL: redis://redis:6379
       NEXT_PUBLIC_ML_SERVER_URL: ws://python-backend:8000
+    volumes:
+      - ./uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy

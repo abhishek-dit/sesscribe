@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import prisma from "@/lib/prisma";
 import { getDriveClient } from "@/lib/googleDrive";
 
@@ -9,30 +11,54 @@ export async function GET(request) {
 
     const session = await prisma.session.findUnique({
       where: { id: sessionId },
-      select: { audioFileId: true },
+      select: { audioFileId: true, audioLocalPath: true },
     });
 
-    if (!session?.audioFileId) {
+    if (!session?.audioFileId && !session?.audioLocalPath) {
       return Response.json({ error: "No audio recording found for this session" }, { status: 404 });
     }
 
-    const drive = getDriveClient();
-    if (!drive) return Response.json({ error: "Drive not configured" }, { status: 500 });
+    // Prefer Drive; fall back to local file
+    if (session.audioFileId) {
+      const drive = getDriveClient();
+      if (!drive) return Response.json({ error: "Drive not configured" }, { status: 500 });
 
-    const driveRes = await drive.files.get(
-      { fileId: session.audioFileId, alt: "media" },
-      { responseType: "stream" }
-    );
+      const driveRes = await drive.files.get(
+        { fileId: session.audioFileId, alt: "media" },
+        { responseType: "stream" }
+      );
 
-    // Convert Node.js Readable to Web ReadableStream for Next.js App Router
+      const webStream = new ReadableStream({
+        start(controller) {
+          driveRes.data.on("data", (chunk) => controller.enqueue(chunk));
+          driveRes.data.on("end", () => controller.close());
+          driveRes.data.on("error", (err) => controller.error(err));
+        },
+        cancel() {
+          driveRes.data.destroy();
+        },
+      });
+
+      return new Response(webStream, {
+        headers: {
+          "Content-Type": "audio/webm",
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
+    // Local file fallback
+    const absPath = path.join(process.cwd(), session.audioLocalPath);
+    const fileStream = fs.createReadStream(absPath);
     const webStream = new ReadableStream({
       start(controller) {
-        driveRes.data.on("data", (chunk) => controller.enqueue(chunk));
-        driveRes.data.on("end", () => controller.close());
-        driveRes.data.on("error", (err) => controller.error(err));
+        fileStream.on("data", (chunk) => controller.enqueue(chunk));
+        fileStream.on("end", () => controller.close());
+        fileStream.on("error", (err) => controller.error(err));
       },
       cancel() {
-        driveRes.data.destroy();
+        fileStream.destroy();
       },
     });
 
