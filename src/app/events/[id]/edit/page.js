@@ -18,6 +18,7 @@ export default async function EditEventPage({ params }) {
     whatsappNumber: event.whatsappNumber,
     campaignName: event.campaignName,
     logoUrl: event.logoUrl,
+    logo2Url: event.logo2Url,
     aiSensyProjectId: event.aiSensyProjectId,
     aiSensyToken: event.aiSensyToken,
     broadcastFilter: event.broadcastFilter,

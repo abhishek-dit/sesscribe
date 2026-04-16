@@ -10,6 +10,7 @@ export default function EventEditForm({ event }) {
   const [whatsappNumber, setWhatsappNumber] = useState(event.whatsappNumber);
   const [campaignName, setCampaignName] = useState(event.campaignName || "");
   const [logoUrl, setLogoUrl] = useState(event.logoUrl || "");
+  const [logo2Url, setLogo2Url] = useState(event.logo2Url || "");
   const [aiSensyProjectId, setAiSensyProjectId] = useState(event.aiSensyProjectId || "");
   const [aiSensyToken, setAiSensyToken] = useState(event.aiSensyToken || "");
   const [broadcastFilter, setBroadcastFilter] = useState(event.broadcastFilter || "no_tags");
@@ -32,6 +33,7 @@ export default function EventEditForm({ event }) {
           whatsappNumber,
           campaignName,
           logoUrl,
+          logo2Url,
           aiSensyProjectId,
           aiSensyToken,
           broadcastFilter,
@@ -117,6 +119,40 @@ export default function EventEditForm({ event }) {
               onError={(e) => { e.target.style.display = "none"; }}
             />
             <span style={{ fontSize: "0.82rem", color: "var(--fg-3)" }}>Logo preview</span>
+          </div>
+        )}
+
+        <div>
+          <label className="field-label">Second Logo URL (right side)</label>
+          <input
+            className="field-input"
+            placeholder="https://example.com/logo2.png — appears on the right side of the header"
+            value={logo2Url}
+            onChange={(e) => setLogo2Url(e.target.value)}
+            style={{ fontSize: "1rem", padding: "0.9rem 1.1rem" }}
+          />
+          <p style={{ fontSize: "0.78rem", color: "var(--fg-3)", marginTop: "0.35rem" }}>
+            Shown on the right side of the Google Docs header and slide header. Leave blank to show only the primary logo.
+          </p>
+        </div>
+
+        {logo2Url && (
+          <div style={{
+            padding: "1rem",
+            background: "var(--surface-2)",
+            borderRadius: "var(--radius-sm)",
+            border: "1px solid var(--border)",
+            display: "flex",
+            alignItems: "center",
+            gap: "1rem",
+          }}>
+            <img
+              src={logo2Url}
+              alt="Second logo preview"
+              style={{ maxHeight: "48px", maxWidth: "140px", objectFit: "contain", borderRadius: "4px" }}
+              onError={(e) => { e.target.style.display = "none"; }}
+            />
+            <span style={{ fontSize: "0.82rem", color: "var(--fg-3)" }}>Second logo preview</span>
           </div>
         )}
       </div>
