@@ -139,9 +139,9 @@ if (body.brevoListId !== undefined) data.brevoListId = body.brevoListId || null;
 1. Read `sessionId` from body
 2. Fetch session (include event) from DB
 3. Validate: event must have `brevoApiKey`, `brevoSenderEmail`, `brevoListId`
-4. Extract Google Doc URLs from `session.summary` using the same regex logic as the session page:
-   - Two-doc format: `[📝 Summary: <url>]\n[📄 Transcript: <url>]`
-   - Legacy single-doc format: `[📝 Google Doc Created: <url>]`
+4. Extract the Summary Google Doc URL from `session.summary` using the same regex logic as the session page:
+   - Two-doc format: `[📝 Summary: <url>]\n[📄 Transcript: <url>]` — extract Summary URL only
+   - Legacy single-doc format: `[📝 Google Doc Created: <url>]` — extract that URL
 5. Parse action points from `session.actionPoints` (same `parseActionPoints` logic as session page)
 6. Build email HTML dynamically — see structure below
 7. Build campaign name: `"${session.title} — ${new Date().toLocaleDateString()}"`
@@ -168,8 +168,7 @@ The `htmlContent` is a self-contained HTML string built in the route handler. St
 
 ```
 [Event Name — session title, date]
-[Summary Doc button — links to gdocsSummaryUrl]       (only if URL exists)
-[Transcript Doc button — links to gdocsTranscriptUrl] (only if URL exists)
+[Summary Doc button — links to gdocsSummaryUrl]  (only if URL exists)
 [Key Highlights section — bullet list of action points]
 [Static footer: "SesScribe — An InsideOut Event Product | This transcript and summary
  was generated using AI. AI can make mistakes."]
