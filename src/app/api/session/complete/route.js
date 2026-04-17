@@ -182,6 +182,7 @@ export async function POST(request) {
     const sessionTitle = sessionForDoc?.title || sessionId;
     const eventName = sessionForDoc?.event?.name || null;
     const eventLogoUrl = sessionForDoc?.event?.logoUrl || null;
+    const eventLogo2Url = sessionForDoc?.event?.logo2Url || null;
     const folderId = sessionForDoc?.event?.driveFolderId || process.env.GOOGLE_DRIVE_FOLDER_ID || "";
     const gdocsResult = await createMeetingDoc(
       sessionTitle,
@@ -190,7 +191,8 @@ export async function POST(request) {
       fullText,
       folderId,
       eventName,
-      eventLogoUrl
+      eventLogoUrl,
+      eventLogo2Url
     );
 
     // 4. Persist to PostgreSQL via Prisma.
