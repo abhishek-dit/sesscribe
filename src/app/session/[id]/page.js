@@ -7,6 +7,7 @@ import EventSelector from "@/components/EventSelector";
 import BroadcastAiSensyButton from "@/components/BroadcastAiSensyButton";
 import HighlightsSlideButton from "@/components/HighlightsSlideButton";
 import BroadcastBrevoButton from "@/components/BroadcastBrevoButton";
+import EditableSessionTitle from "@/components/EditableSessionTitle";
 
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
@@ -306,8 +307,8 @@ export default async function SessionResult({ params }) {
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
               <div>
-                <h1 style={{ fontSize: "clamp(1.6rem, 4vw, 2.4rem)", marginBottom: "0.4rem" }}>{session.title}</h1>
-                <p style={{ color: "var(--fg-3)", fontSize: "0.85rem" }}>
+                <EditableSessionTitle sessionId={session.id} initialTitle={session.title} />
+                <p style={{ color: "var(--fg-3)", fontSize: "0.85rem", marginTop: "0.4rem" }}>
                   Recorded on{" "}
                   {new Date(session.date).toLocaleDateString("en-US", {
                     weekday: "long", year: "numeric", month: "long", day: "numeric",
