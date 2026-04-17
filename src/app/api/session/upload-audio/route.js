@@ -38,21 +38,53 @@ async function runDeepgramBatch(audioBuffer) {
   return segments;
 }
 
+// Read and concatenate all saved chunk files for a session, then delete them
+async function loadAndClearChunks(sessionId) {
+  const chunkDir = path.join(AUDIO_DIR, sessionId);
+  let files;
+  try {
+    files = await fs.readdir(chunkDir);
+  } catch (_) {
+    return null; // no chunks saved
+  }
+
+  const chunkFiles = files
+    .filter((f) => f.startsWith("chunk-") && f.endsWith(".webm"))
+    .sort(); // lexicographic order matches zero-padded index
+
+  if (chunkFiles.length === 0) return null;
+
+  const buffers = await Promise.all(
+    chunkFiles.map((f) => fs.readFile(path.join(chunkDir, f)))
+  );
+  const combined = Buffer.concat(buffers);
+  console.log(`[upload-audio] Combined ${chunkFiles.length} chunks → ${(combined.length / 1024 / 1024).toFixed(1)} MB`);
+
+  // Clean up chunk files
+  await fs.rm(chunkDir, { recursive: true, force: true }).catch(() => {});
+
+  return combined;
+}
+
 export async function POST(request) {
   try {
-    const formData = await request.formData();
-    const sessionId = formData.get("sessionId");
-    const audioFile = formData.get("audioFile");
+    const body = await request.json();
+    const { sessionId } = body;
 
-    if (!sessionId || !audioFile || audioFile.size === 0) {
-      return Response.json({ error: "sessionId and audioFile required" }, { status: 400 });
+    if (!sessionId) {
+      return Response.json({ error: "sessionId is required" }, { status: 400 });
     }
 
-    // Read into buffer once — used for both Deepgram and Drive upload
-    const audioBuffer = Buffer.from(await audioFile.arrayBuffer());
-    console.log(`[upload-audio] Received ${(audioBuffer.length / 1024 / 1024).toFixed(1)} MB for session ${sessionId}`);
+    console.log(`[upload-audio] Finalizing audio for session ${sessionId}`);
 
-    // Fetch session + event (for folder ID and live transcript)
+    // Load from saved chunks
+    const audioBuffer = await loadAndClearChunks(sessionId);
+    if (!audioBuffer || audioBuffer.length === 0) {
+      console.log(`[upload-audio] No chunks found for session ${sessionId}`);
+      return Response.json({ success: true, batch: false, audioSaved: false, segments: 0 });
+    }
+
+    // Fetch session + event
     const session = await prisma.session.findUnique({
       where: { id: sessionId },
       include: { event: true },
@@ -64,7 +96,7 @@ export async function POST(request) {
     const folderId = session.event?.driveFolderId || null;
     const audioFilename = `${(session.title || sessionId).replace(/[^a-z0-9]/gi, "_")}.webm`;
 
-    // Run Deepgram transcription + Drive upload in parallel
+    // Deepgram transcription + Drive upload in parallel
     const [dgResult, driveResult] = await Promise.allSettled([
       runDeepgramBatch(audioBuffer),
       folderId
@@ -72,7 +104,6 @@ export async function POST(request) {
         : Promise.resolve(null),
     ]);
 
-    // Build session update
     const updateData = {};
 
     if (dgResult.status === "fulfilled" && dgResult.value) {
@@ -88,14 +119,15 @@ export async function POST(request) {
       updateData.audioFileId = driveResult.value.fileId;
       console.log(`[upload-audio] Audio Drive fileId: ${driveResult.value.fileId}`);
     } else {
-      // Drive unavailable or upload failed — save locally so Recording section still works
       if (driveResult.status === "rejected") {
         console.error("[upload-audio] Drive upload failed:", driveResult.reason?.message);
       }
+      // Save combined audio locally as fallback
       try {
-        await fs.mkdir(AUDIO_DIR, { recursive: true });
+        const localDir = path.join(AUDIO_DIR);
+        await fs.mkdir(localDir, { recursive: true });
         const localFilename = `${sessionId}.webm`;
-        await fs.writeFile(path.join(AUDIO_DIR, localFilename), audioBuffer);
+        await fs.writeFile(path.join(localDir, localFilename), audioBuffer);
         updateData.audioLocalPath = `uploads/audio/${localFilename}`;
         console.log(`[upload-audio] Saved locally: ${updateData.audioLocalPath}`);
       } catch (localErr) {
@@ -111,7 +143,7 @@ export async function POST(request) {
       success: true,
       batch: dgResult.status === "fulfilled" && dgResult.value !== null,
       segments: dgResult.status === "fulfilled" ? (dgResult.value?.length ?? 0) : 0,
-      audioSaved: driveResult.status === "fulfilled" && driveResult.value !== null,
+      audioSaved: (driveResult.status === "fulfilled" && driveResult.value !== null) || !!updateData.audioLocalPath,
     });
   } catch (error) {
     console.error("[upload-audio] Error:", error);

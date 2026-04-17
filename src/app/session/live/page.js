@@ -152,7 +152,10 @@ function LiveSessionInner() {
   const bottomRef          = useRef(null);
   const isPausedRef        = useRef(false); // track pause without state closure issues
   const segmentsRef        = useRef([]);    // always-fresh ref for auto-save
-  const autoSaveRef        = useRef(null);  // auto-save interval handle
+  const autoSaveRef        = useRef(null);  // transcript auto-save interval handle
+  const uploadedUpToRef    = useRef(0);     // how many 1s blobs already uploaded as chunks
+  const chunkFileIndexRef  = useRef(0);     // next chunk file index (restored on mount if session had prior chunks)
+  const chunkUploadRef     = useRef(null);  // audio chunk upload interval handle
 
   // Auto-scroll
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [segments, pending]);
@@ -172,6 +175,39 @@ function LiveSessionInner() {
       })
       .catch(() => {});
   }, [sessionId]);
+
+  // Restore chunk file index from server on mount (so resumed sessions continue numbering)
+  useEffect(() => {
+    if (!sessionId) return;
+    fetch(`/api/session/audio-chunk?sessionId=${sessionId}`)
+      .then((r) => r.json())
+      .then((data) => { if (data.chunkCount > 0) chunkFileIndexRef.current = data.chunkCount; })
+      .catch(() => {});
+  }, [sessionId]);
+
+  // Upload audio chunks to server every 60s while recording
+  useEffect(() => {
+    if (status === "recording") {
+      chunkUploadRef.current = setInterval(() => {
+        const pending = audioChunksRef.current.slice(uploadedUpToRef.current);
+        if (!sessionId || pending.length === 0) return;
+        const blob = new Blob(pending, { type: "audio/webm" });
+        const form = new FormData();
+        form.append("sessionId", sessionId);
+        form.append("chunkIndex", String(chunkFileIndexRef.current));
+        form.append("chunk", blob, "chunk.webm");
+        fetch("/api/session/audio-chunk", { method: "POST", body: form })
+          .then(() => {
+            uploadedUpToRef.current += pending.length;
+            chunkFileIndexRef.current += 1;
+          })
+          .catch(() => {});
+      }, 60000);
+    } else {
+      clearInterval(chunkUploadRef.current);
+    }
+    return () => clearInterval(chunkUploadRef.current);
+  }, [status, sessionId]);
 
   // Auto-save live transcript to DB every 30s while recording
   useEffect(() => {
@@ -451,33 +487,44 @@ function LiveSessionInner() {
     setPending(null);
 
     try {
-      const finalBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+      // Step 1: Flush any remaining un-uploaded audio chunks to server
+      const pending = audioChunksRef.current.slice(uploadedUpToRef.current);
+      if (pending.length > 0) {
+        try {
+          const blob = new Blob(pending, { type: "audio/webm" });
+          console.log(`[Frontend] Flushing final audio chunk (${(blob.size / 1024 / 1024).toFixed(1)} MB)...`);
+          const form = new FormData();
+          form.append("sessionId", sessionId);
+          form.append("chunkIndex", String(chunkFileIndexRef.current));
+          form.append("chunk", blob, "chunk.webm");
+          await fetch("/api/session/audio-chunk", { method: "POST", body: form });
+          uploadedUpToRef.current += pending.length;
+          chunkFileIndexRef.current += 1;
+        } catch (flushErr) {
+          console.warn("[Frontend] Final chunk flush failed:", flushErr.message);
+        }
+      }
 
-      // Step 1: Send transcript JSON (small payload — always succeeds)
+      // Step 2: Send transcript JSON (small payload — always succeeds)
       console.log(`[Frontend] Sending transcript (${finalTranscript.length} segments)...`);
       const res = await fetch("/api/session/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          transcript: finalTranscript,
-        }),
+        body: JSON.stringify({ sessionId, transcript: finalTranscript }),
       });
       const data = await res.json();
 
-      // Step 2: Try uploading audio separately for batch processing (may fail for large files — that's OK)
-      if (data.success && finalBlob.size > 0) {
+      // Step 3: Tell server to combine chunks, run Deepgram + Drive upload
+      if (data.success && chunkFileIndexRef.current > 0) {
         try {
-          console.log(`[Frontend] Uploading audio (${(finalBlob.size / 1024 / 1024).toFixed(1)} MB)...`);
-          const audioForm = new FormData();
-          audioForm.append("sessionId", sessionId);
-          audioForm.append("audioFile", finalBlob, "recording.webm");
+          console.log(`[Frontend] Triggering audio finalization (${chunkFileIndexRef.current} chunks)...`);
           await fetch("/api/session/upload-audio", {
             method: "POST",
-            body: audioForm,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId }),
           });
         } catch (audioErr) {
-          console.warn("[Frontend] Audio upload failed (non-fatal):", audioErr.message);
+          console.warn("[Frontend] Audio finalization failed (non-fatal):", audioErr.message);
         }
       }
 
