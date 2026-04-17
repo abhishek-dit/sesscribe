@@ -140,20 +140,56 @@ function LiveSessionInner() {
   // "mic" = physical microphone, "system" = tab/screen audio via getDisplayMedia
   const [audioSource, setAudioSource] = useState("mic");
 
-  const wsRef           = useRef(null);
-  const audioCtxRef     = useRef(null);
-  const processorRef    = useRef(null);
-  const sourceRef       = useRef(null);
-  const streamRef       = useRef(null);
-  const recorderRef     = useRef(null);
-  const audioChunksRef  = useRef([]);
-  const timerRef        = useRef(null);
-  const startTimeRef    = useRef(null);
-  const bottomRef       = useRef(null);
-  const isPausedRef     = useRef(false); // track pause without state closure issues
+  const wsRef              = useRef(null);
+  const audioCtxRef        = useRef(null);
+  const processorRef       = useRef(null);
+  const sourceRef          = useRef(null);
+  const streamRef          = useRef(null);
+  const recorderRef        = useRef(null);
+  const audioChunksRef     = useRef([]);
+  const timerRef           = useRef(null);
+  const startTimeRef       = useRef(null);
+  const bottomRef          = useRef(null);
+  const isPausedRef        = useRef(false); // track pause without state closure issues
+  const segmentsRef        = useRef([]);    // always-fresh ref for auto-save
+  const autoSaveRef        = useRef(null);  // auto-save interval handle
 
   // Auto-scroll
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [segments, pending]);
+
+  // Keep segmentsRef in sync so interval/callbacks always read fresh data
+  useEffect(() => { segmentsRef.current = segments; }, [segments]);
+
+  // Restore in-progress transcript from DB on page load
+  useEffect(() => {
+    if (!sessionId) return;
+    fetch(`/api/session/transcript?sessionId=${sessionId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data.segments) && data.segments.length > 0) {
+          setSegments(data.segments);
+        }
+      })
+      .catch(() => {});
+  }, [sessionId]);
+
+  // Auto-save live transcript to DB every 30s while recording
+  useEffect(() => {
+    if (status === "recording") {
+      autoSaveRef.current = setInterval(() => {
+        const segs = segmentsRef.current;
+        if (!sessionId || segs.length === 0) return;
+        fetch("/api/session/transcript", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId, segments: segs }),
+        }).catch(() => {});
+      }, 30000);
+    } else {
+      clearInterval(autoSaveRef.current);
+    }
+    return () => clearInterval(autoSaveRef.current);
+  }, [status, sessionId]);
 
   // Elapsed timer
   useEffect(() => {
@@ -325,6 +361,15 @@ function LiveSessionInner() {
 
       ws.onerror = () => {
         console.error("WebSocket error — ML server may be down.");
+        // Save whatever we have before tearing down
+        const segs = segmentsRef.current;
+        if (segs.length > 0) {
+          fetch("/api/session/transcript", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId, segments: segs }),
+          }).catch(() => {});
+        }
         cleanup(true); // keep segments
         setStatus("idle");
       };
@@ -538,6 +583,12 @@ function LiveSessionInner() {
 
           {/* Transcript history panel */}
           <div className="transcript-pane" style={{ paddingBottom: pending ? "130px" : "80px" }}>
+            {segments.length > 0 && isIdle && (
+              <div style={{ display:"flex", alignItems:"center", gap:"0.6rem", marginBottom:"1rem", padding:"0.65rem 1rem", background:"rgba(16,185,129,0.08)", border:"1px solid rgba(16,185,129,0.2)", borderRadius:"8px", fontSize:"0.8rem", color:"#34d399" }}>
+                <span>↩</span>
+                <span>{segments.length} segment{segments.length !== 1 ? "s" : ""} recovered from interrupted session — click <strong>Continue Recording</strong> to resume, or <strong>✕ Clear</strong> to start fresh.</span>
+              </div>
+            )}
             {segments.length === 0 && !pending ? (
               <div className="empty-state">
                 <div style={{ fontSize:"2.5rem", marginBottom:"0.25rem" }}>🎙</div>
@@ -621,15 +672,27 @@ function LiveSessionInner() {
                 </button>
               </div>
 
+              {segments.length > 0 && !isConnecting && (
+                <button
+                  className="ctrl-btn"
+                  onClick={() => { setSegments([]); setElapsed(0); startTimeRef.current = null; audioChunksRef.current = []; }}
+                  style={{ fontSize:"0.78rem", padding:"0.45rem 0.9rem", opacity:0.6 }}
+                  title="Discard recovered transcript and start completely fresh"
+                >
+                  ✕ Clear
+                </button>
+              )}
               <button
                 className="ctrl-btn primary"
-                onClick={() => startRecording(true)}
+                onClick={() => startRecording(false)}
                 disabled={isConnecting}
                 style={{ padding:"0.65rem 1.6rem",fontSize:"0.9rem" }}
               >
                 {isConnecting
                   ? <><div className="spinner" /> Connecting…</>
-                  : audioSource === "system" ? "▶ Start Capture" : "🎙 Start Microphone"
+                  : segments.length > 0
+                    ? audioSource === "system" ? "▶ Continue Capture" : "🎙 Continue Recording"
+                    : audioSource === "system" ? "▶ Start Capture" : "🎙 Start Microphone"
                 }
               </button>
             </>)}
