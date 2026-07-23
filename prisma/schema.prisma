@@ -34,6 +34,8 @@ model Event {
   campaignName     String?   // AiSensy template/campaign name
   logoUrl          String?   // Logo URL for Google Docs branding
   logo2Url         String?   // Second logo URL — right side of Google Docs header and slide
+  docHeadingColor  String?   // Hex color for doc title/section headings & dividers (default #CC0000)
+  docBodyColor     String?   // Hex color for doc summary/highlights body text (default #1E293B)
   aiSensyProjectId String?   // AiSensy assistantId for contacts API
   aiSensyToken     String?   // AiSensy JWT session token (expires ~30min, refresh before broadcast)
   broadcastFilter  String    @default("no_tags") // "all" | "no_tags" | "has_tag" | "not_has_tag"

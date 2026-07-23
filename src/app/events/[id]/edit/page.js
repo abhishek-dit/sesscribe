@@ -19,6 +19,8 @@ export default async function EditEventPage({ params }) {
     campaignName: event.campaignName,
     logoUrl: event.logoUrl,
     logo2Url: event.logo2Url,
+    docHeadingColor: event.docHeadingColor,
+    docBodyColor: event.docBodyColor,
     aiSensyProjectId: event.aiSensyProjectId,
     aiSensyToken: event.aiSensyToken,
     broadcastFilter: event.broadcastFilter,

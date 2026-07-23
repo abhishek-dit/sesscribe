@@ -51,7 +51,11 @@ export async function POST(request) {
       folderId,
       event?.name || null,
       event?.logoUrl || null,
-      event?.logo2Url || null
+      event?.logo2Url || null,
+      {
+        headingColor: event?.docHeadingColor || null,
+        bodyColor: event?.docBodyColor || null,
+      }
     );
 
     if (!result) {

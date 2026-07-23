@@ -11,6 +11,8 @@ export default function EventEditForm({ event }) {
   const [campaignName, setCampaignName] = useState(event.campaignName || "");
   const [logoUrl, setLogoUrl] = useState(event.logoUrl || "");
   const [logo2Url, setLogo2Url] = useState(event.logo2Url || "");
+  const [docHeadingColor, setDocHeadingColor] = useState(event.docHeadingColor || "#CC0000");
+  const [docBodyColor, setDocBodyColor] = useState(event.docBodyColor || "#1E293B");
   const [aiSensyProjectId, setAiSensyProjectId] = useState(event.aiSensyProjectId || "");
   const [aiSensyToken, setAiSensyToken] = useState(event.aiSensyToken || "");
   const [broadcastFilter, setBroadcastFilter] = useState(event.broadcastFilter || "no_tags");
@@ -37,6 +39,8 @@ export default function EventEditForm({ event }) {
           campaignName,
           logoUrl,
           logo2Url,
+          docHeadingColor,
+          docBodyColor,
           aiSensyProjectId,
           aiSensyToken,
           broadcastFilter,
@@ -161,6 +165,50 @@ export default function EventEditForm({ event }) {
             <span style={{ fontSize: "0.82rem", color: "var(--fg-3)" }}>Second logo preview</span>
           </div>
         )}
+
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: "200px" }}>
+            <label className="field-label">Heading / Accent Color</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <input
+                type="color"
+                value={docHeadingColor}
+                onChange={(e) => setDocHeadingColor(e.target.value)}
+                style={{ width: 44, height: 40, padding: 0, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "none", cursor: "pointer" }}
+              />
+              <input
+                className="field-input"
+                value={docHeadingColor}
+                onChange={(e) => setDocHeadingColor(e.target.value)}
+                style={{ fontSize: "0.9rem", padding: "0.7rem 0.9rem", fontFamily: "monospace", flex: 1 }}
+              />
+            </div>
+            <p style={{ fontSize: "0.78rem", color: "var(--fg-3)", marginTop: "0.35rem" }}>
+              Used for the doc title, section headings, and divider lines. Default <code>#CC0000</code>.
+            </p>
+          </div>
+
+          <div style={{ flex: 1, minWidth: "200px" }}>
+            <label className="field-label">Body Text Color</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <input
+                type="color"
+                value={docBodyColor}
+                onChange={(e) => setDocBodyColor(e.target.value)}
+                style={{ width: 44, height: 40, padding: 0, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "none", cursor: "pointer" }}
+              />
+              <input
+                className="field-input"
+                value={docBodyColor}
+                onChange={(e) => setDocBodyColor(e.target.value)}
+                style={{ fontSize: "0.9rem", padding: "0.7rem 0.9rem", fontFamily: "monospace", flex: 1 }}
+              />
+            </div>
+            <p style={{ fontSize: "0.78rem", color: "var(--fg-3)", marginTop: "0.35rem" }}>
+              Used for the summary and highlights text. Default <code>#1E293B</code>.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* AiSensy / WhatsApp */}

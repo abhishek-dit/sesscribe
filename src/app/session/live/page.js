@@ -336,6 +336,11 @@ function LiveSessionInner() {
       const audioCtx = new AudioContext();
       audioCtxRef.current = audioCtx;
 
+      // Safari (macOS) starts the context "suspended". If we don't resume it
+      // within the user-gesture chain, ScriptProcessor.onaudioprocess fires
+      // erratically or stops after a few seconds → audio flow dies mid-session.
+      if (audioCtx.state === "suspended") { try { await audioCtx.resume(); } catch (_) {} }
+
       const source = audioCtx.createMediaStreamSource(stream);
       sourceRef.current = source;
 
@@ -371,9 +376,14 @@ function LiveSessionInner() {
           ws.send(i16.buffer);
         };
         source.connect(processor);
-        // Silent destination keeps the ScriptProcessor alive (no speaker output).
-        const silentDest = audioCtx.createMediaStreamDestination();
-        processor.connect(silentDest);
+        // A ScriptProcessor is only "pulled" (onaudioprocess keeps firing) while
+        // its graph reaches the context's REAL destination. A MediaStreamDestination
+        // does NOT keep it alive on Safari — audio stops after a few seconds.
+        // Route through a muted gain node so the graph runs but nothing is audible.
+        const mute = audioCtx.createGain();
+        mute.gain.value = 0;
+        processor.connect(mute);
+        mute.connect(audioCtx.destination);
       };
 
       ws.onmessage = (event) => {

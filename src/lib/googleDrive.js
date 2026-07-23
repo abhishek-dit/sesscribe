@@ -102,6 +102,33 @@ function mkPara(start, end, opts, segId) {
   return { updateParagraphStyle: { range, paragraphStyle: ps, fields: f.join(",") } };
 }
 
+// Insert a header logo. Google Docs insertInlineImage only accepts PNG/JPEG/GIF —
+// WordPress/CDN URLs frequently serve WebP (e.g. "...png.webp"), which fails. On
+// failure, retry once through a PNG-normalizing image proxy so any format works.
+async function insertHeaderLogo(docs, documentId, headerId, index, url, label) {
+  const attempt = (uri) => docs.documents.batchUpdate({
+    documentId,
+    requestBody: {
+      requests: [{
+        insertInlineImage: {
+          location: { segmentId: headerId, index },
+          uri,
+          objectSize: { height: { magnitude: 72, unit: "PT" }, width: { magnitude: 72, unit: "PT" } },
+        },
+      }],
+    },
+  });
+  try {
+    await attempt(url);
+  } catch (e) {
+    try {
+      await attempt(`https://images.weserv.nl/?url=${encodeURIComponent(url)}&output=png`);
+    } catch (e2) {
+      console.warn(`[GoogleDocs] ${label} insertion failed:`, e2.message);
+    }
+  }
+}
+
 // ─── Shared: create a branded doc with header/footer/logo ────────────────────
 async function createBrandedDoc(docs, drive, { title, displayEvent, displayDate, logoUrl, logo2Url, folderId }) {
   const doc = await docs.documents.create({ requestBody: { title } });
@@ -142,43 +169,13 @@ async function createBrandedDoc(docs, drive, { title, displayEvent, displayDate,
   await docs.documents.batchUpdate({ documentId, requestBody: { requests: headerFmt } });
 
   // Insert logo1 at index 0 (left side) — 72×72 PT
-  try {
-    await docs.documents.batchUpdate({
-      documentId,
-      requestBody: {
-        requests: [{
-          insertInlineImage: {
-            location: { segmentId: headerId, index: 0 },
-            uri: logoUrl || BRAND.defaultLogoUrl,
-            objectSize: { height: { magnitude: 72, unit: "PT" }, width: { magnitude: 72, unit: "PT" } },
-          },
-        }],
-      },
-    });
-  } catch (e) {
-    console.warn("[GoogleDocs] Logo1 insertion failed:", e.message);
-  }
+  await insertHeaderLogo(docs, documentId, headerId, 0, logoUrl || BRAND.defaultLogoUrl, "Logo1");
 
   // Insert logo2 at end of header text (right side)
   // After logo1 insert at index 0, the \n is now at index headerText.length.
   // Inserting at headerText.length places logo2 immediately before the \n.
   if (logo2Url) {
-    try {
-      await docs.documents.batchUpdate({
-        documentId,
-        requestBody: {
-          requests: [{
-            insertInlineImage: {
-              location: { segmentId: headerId, index: headerText.length },
-              uri: logo2Url,
-              objectSize: { height: { magnitude: 72, unit: "PT" }, width: { magnitude: 72, unit: "PT" } },
-            },
-          }],
-        },
-      });
-    } catch (e) {
-      console.warn("[GoogleDocs] Logo2 insertion failed:", e.message);
-    }
+    await insertHeaderLogo(docs, documentId, headerId, headerText.length, logo2Url, "Logo2");
   }
 
   try {
@@ -213,12 +210,12 @@ function buildTitleBlock(sessionTitle, displayEvent, displayDate) {
   return { body, parts, cursor };
 }
 
-function formatTitleBlock(parts) {
+function formatTitleBlock(parts, headingColor = BRAND.red) {
   const p = (id) => parts.find((x) => x.id === id);
   const fmt = [];
 
   const t = p("title");
-  fmt.push(mkText(t.start, t.end - 1, { bold: true, fontSize: 24, color: BRAND.red, font: BRAND.font }));
+  fmt.push(mkText(t.start, t.end - 1, { bold: true, fontSize: 24, color: headingColor, font: BRAND.font }));
   fmt.push(mkPara(t.start, t.end - 1, { spaceBelow: 2, lineSpacing: 120 }));
 
   const ev = p("event");
@@ -227,14 +224,14 @@ function formatTitleBlock(parts) {
 
   const dt = p("date");
   fmt.push(mkText(dt.start, dt.end - 1, { fontSize: 10, color: BRAND.gray, font: BRAND.font }));
-  fmt.push(mkPara(dt.start, dt.end - 1, { spaceBelow: 14, borderBottom: { color: { color: { rgbColor: BRAND.red } }, width: { magnitude: 2, unit: "PT" }, padding: { magnitude: 10, unit: "PT" }, dashStyle: "SOLID" } }));
+  fmt.push(mkPara(dt.start, dt.end - 1, { spaceBelow: 14, borderBottom: { color: { color: { rgbColor: headingColor } }, width: { magnitude: 2, unit: "PT" }, padding: { magnitude: 10, unit: "PT" }, dashStyle: "SOLID" } }));
 
   return fmt;
 }
 
 // ─── Main Export: creates two docs ───────────────────────────────────────────
 export async function createMeetingDoc(
-  sessionTitle, summary, actionPoints, transcriptText, folderId, eventName, eventLogoUrl, eventLogo2Url
+  sessionTitle, summary, actionPoints, transcriptText, folderId, eventName, eventLogoUrl, eventLogo2Url, colors = {}
 ) {
   try {
     const auth = getAuth();
@@ -242,6 +239,11 @@ export async function createMeetingDoc(
 
     const docs = google.docs({ version: "v1", auth });
     const drive = google.drive({ version: "v3", auth });
+
+    // Per-event color overrides — fall back to brand defaults when unset/invalid.
+    const safeRgb = (hex, fallback) => /^#[0-9a-fA-F]{6}$/.test(hex || "") ? rgb(hex) : fallback;
+    const headingColor = safeRgb(colors.headingColor, BRAND.red);
+    const bodyColor    = safeRgb(colors.bodyColor, BRAND.darkSlate);
 
     const displayEvent = eventName || "TiECon Mysuru 2026";
     const displayDate = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
@@ -276,21 +278,21 @@ export async function createMeetingDoc(
     });
 
     // Format
-    const fmt1 = formatTitleBlock(p1);
+    const fmt1 = formatTitleBlock(p1, headingColor);
     const pf = (id) => p1.find((x) => x.id === id);
 
     for (const hId of ["summaryH", "highlightsH"]) {
       const h = pf(hId);
-      fmt1.push(mkText(h.start, h.end - 1, { bold: true, fontSize: 15, color: BRAND.red, font: BRAND.font }));
+      fmt1.push(mkText(h.start, h.end - 1, { bold: true, fontSize: 15, color: headingColor, font: BRAND.font }));
       fmt1.push(mkPara(h.start, h.end - 1, { spaceAbove: 22, spaceBelow: 8, borderBottom: { color: { color: { rgbColor: rgb("#E5E7EB") } }, width: { magnitude: 0.5, unit: "PT" }, padding: { magnitude: 4, unit: "PT" }, dashStyle: "SOLID" } }));
     }
 
     const sb = pf("summaryB");
-    fmt1.push(mkText(sb.start, sb.end - 1, { fontSize: 11, color: BRAND.darkSlate, font: BRAND.font }));
+    fmt1.push(mkText(sb.start, sb.end - 1, { fontSize: 11, color: bodyColor, font: BRAND.font }));
     fmt1.push(mkPara(sb.start, sb.end - 1, { lineSpacing: 165, spaceBelow: 4 }));
 
     const hb = pf("highlightsB");
-    fmt1.push(mkText(hb.start, hb.end - 1, { fontSize: 11, color: BRAND.darkSlate, font: BRAND.font }));
+    fmt1.push(mkText(hb.start, hb.end - 1, { fontSize: 11, color: bodyColor, font: BRAND.font }));
     fmt1.push(mkPara(hb.start, hb.end - 1, { lineSpacing: 180, spaceBelow: 3, indentStart: 18 }));
 
     await docs.documents.batchUpdate({ documentId: summaryDoc.documentId, requestBody: { requests: fmt1 } });
@@ -317,11 +319,11 @@ export async function createMeetingDoc(
       requestBody: { requests: [{ insertText: { location: { index: 1 }, text: body2 } }] },
     });
 
-    const fmt2 = formatTitleBlock(p2);
+    const fmt2 = formatTitleBlock(p2, headingColor);
     const pf2 = (id) => p2.find((x) => x.id === id);
 
     const th = pf2("transcriptH");
-    fmt2.push(mkText(th.start, th.end - 1, { bold: true, fontSize: 15, color: BRAND.red, font: BRAND.font }));
+    fmt2.push(mkText(th.start, th.end - 1, { bold: true, fontSize: 15, color: headingColor, font: BRAND.font }));
     fmt2.push(mkPara(th.start, th.end - 1, { spaceAbove: 22, spaceBelow: 8, borderBottom: { color: { color: { rgbColor: rgb("#E5E7EB") } }, width: { magnitude: 0.5, unit: "PT" }, padding: { magnitude: 4, unit: "PT" }, dashStyle: "SOLID" } }));
 
     const txb = pf2("transcriptB");

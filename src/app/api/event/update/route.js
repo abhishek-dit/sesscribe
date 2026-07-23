@@ -23,6 +23,8 @@ export async function POST(request) {
     if (body.campaignName !== undefined)      data.campaignName = body.campaignName || null;
     if (body.logoUrl !== undefined)           data.logoUrl = body.logoUrl || null;
     if (body.logo2Url !== undefined)          data.logo2Url = body.logo2Url || null;
+    if (body.docHeadingColor !== undefined)   data.docHeadingColor = body.docHeadingColor || null;
+    if (body.docBodyColor !== undefined)      data.docBodyColor = body.docBodyColor || null;
     if (body.aiSensyProjectId !== undefined)  data.aiSensyProjectId = body.aiSensyProjectId || null;
     if (body.aiSensyToken !== undefined)      data.aiSensyToken = body.aiSensyToken || null;
     if (body.broadcastFilter !== undefined)   data.broadcastFilter = body.broadcastFilter;

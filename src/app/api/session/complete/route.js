@@ -192,7 +192,11 @@ export async function POST(request) {
       folderId,
       eventName,
       eventLogoUrl,
-      eventLogo2Url
+      eventLogo2Url,
+      {
+        headingColor: sessionForDoc?.event?.docHeadingColor || null,
+        bodyColor: sessionForDoc?.event?.docBodyColor || null,
+      }
     );
 
     // 4. Persist to PostgreSQL via Prisma.
