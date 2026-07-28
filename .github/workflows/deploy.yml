@@ -16,6 +16,9 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             cd /opt/sesscribe
+            # sesscribe runs on the system Docker daemon; the default socket is
+            # owned by snap docker. Target the system daemon's dedicated socket.
+            export DOCKER_HOST=unix:///run/docker-sys.sock
             git fetch origin && git reset --hard origin/main
             docker compose build
             docker compose up -d --force-recreate
